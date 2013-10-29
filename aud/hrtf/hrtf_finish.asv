@@ -1,0 +1,39 @@
+function hrtf_finish(source,eventdata)
+% Hill, Kevin
+%   Minor fixes by CWB.
+
+global H rds BASE
+% if ~exist('opts', 'var') || isempty(opts) opts=[]; end
+
+%% GUI SELECTION OF INPUT OPTIONS TO HRTF_COMPUTE
+l=strvcat('NONE','SM', 'NR', 'MF');
+[in]=listdlg('PromptString', 'Select hrtf_compute INPUTS',...
+'ListString',  l);
+if in==1 | isempty(in), l=[]; else l=l(in,:); end
+
+%% COMPUTE HRTF
+%   If the HRTF is very large (beyond about 19 points), each point must be
+%   estimated separately.  As a result, Normalization (NR) inputs will be
+%   ignored.
+if size(rds,3)>19
+    % EXCLUDE NR
+    l=l(l~=3);
+    for i=1:size(rds,3)
+        in.sub=rds.sub; in.Hdw=rds.Hdw; in.fs=rds.fs; 
+        in.thetaVec=rds.thetaVec(i); in.ref=rds.ref;
+        in.itd=rds.itd(i); in.ild=rds.ild(i);
+        in.rec=rds.rec(:,:,i);
+        [OUT BASE]=hrtf_compute(in,l);
+    end 
+else
+    [hds BASE]=hrtf_compute(rds, l);
+end
+
+%% SAVE DATA
+save([BASE '-rds'],'rds');
+save([BASE '-hds'],'hds');
+
+%% FINISH UP
+%   Clear variables and close figure.
+close(H.fig)
+clear global H rds BASE

@@ -1,0 +1,71 @@
+function [POUT]=hrtf_cal_prep(Fin, d, P, n)
+% DESCRIPTION:
+%
+%   Create subject stimuli and experiment sequence for use by Presentation.
+%
+% INPUT:
+%
+%   Fin:    string, full path to subject's HDS mat file. Can also be HDS
+%           structure.
+%       hds is a structe containing the following fields.
+%           .sub:   string, subject ID
+%           .fs:    integer, sampling frequency
+%           .thetaVec: double array, angles recorded.
+%           .hrtf:  self explanatory
+%           .hrir:  time representation of HRTF (ifft(hds.hrtf))
+%   d:      double array, degree azimuth.  Note that d must be somewhere 
+%           within the range of values in HDS.  If not defined, then
+%           defaults to whatever angles are in HDS (set in hrtf_filt.m).
+%   P:      char array, stimulus files to be used, each line is the full
+%           path to the single channel wave file.  
+%   n:      integer, number of samples per angle. (default 5)
+%   
+%
+% OUTPUT:
+%
+%   POUT:   sequence of files to be played.
+%   Output of hrtf_filt.m and a subject specific sequence of events.  The
+%   latter is used by Presentation.
+%
+% Bishop, Chris Miller Lab 2009. 
+%% INPUT CHECKS
+if ~isstr(Fin),hds=Fin;else load(Fin,'hds'); end
+if ~exist('d', 'var') || isempty(d), d=hds.thetaVec;end
+if ~exist('n', 'var') || isempty(n), n=5;end
+POUT=[];
+ind=[];
+
+%% MAKE SUBJECT SPECIFIC DIRECTORY
+sdir=['C:\Documents and Settings\cwbishop\My Documents\Presentation\Ventriloquism\stims\Cropped_and_Edited\' hds.sub];
+mkdir(sdir);
+
+%% CREATE STIMULI
+% Makes a batch call to hrtf_filt.m, a function that constructs and writes
+% HRIR filtered stimuli.
+for f=1:size(P,1)
+    Fwav=P(f,:);
+    [PATHSTR,NAME,EXT,VERSN] = fileparts(Fwav);  
+    Fo=[sdir filesep hds.sub NAME EXT];
+    [p]=hrtf_filt(hds,d,Fwav,[],Fo); 
+    [POUT]=strvcat(POUT, p);   
+    ind=[ind; f.*ones(size(p,1),1)];
+end % f
+
+%% CREATE STIMULUS SEQUENCE TEXT FILE
+% For now, this will be a truly random permutation of the angles.  Should
+% probably be pseudorandom in the future.
+POUT=repmat(POUT,n,1);
+ind=repmat(ind,n,1);
+% d must be a column vector
+if size(d,2)>1, d=d'; warning('Transposing d');end
+d=repmat(d,n*size(P,1),1);
+I=randperm(size(POUT,1));
+POUT=POUT(I,:);
+ind=ind(I,1);
+d=d(I);
+ptr=fopen([sdir filesep 'LATERALIZE_INPUT.txt'],'w');
+for z=1:size(POUT,1)
+    [PATHSTR,NAME,EXT,VERSN] = fileparts(POUT(z,:));  
+    fprintf(ptr,[NAME EXT]); fprintf(ptr, '\t'); fprintf(ptr, num2str(d(z))); fprintf(ptr, '\t'); fprintf(ptr, num2str(ind(z))); fprintf(ptr,'\t'); fprintf(ptr,'\n');
+end % z
+fclose(ptr);
