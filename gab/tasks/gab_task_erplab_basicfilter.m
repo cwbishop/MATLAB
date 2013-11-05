@@ -7,34 +7,33 @@ function [results]=gab_task_erplab_basicfilter(args)
 %   to pop_basicfilter.m for a complete description of these variables.  A
 %   brief description of each is provided here.
 %
-%   args.channels:      channels to filter (e.g. 1:64; default=EEG.nbchan)
-%   args.locutoff:      lower corner frequency
-%   args.hicutoff:      high corner frequency
-%   args.filterorder:   filter order (e.g. 2)
-%   args.typef:         filter type (e.g. 'butter' or 'fir')
-%   args.remove_dc:     remove DC offset (1=yes, 0=no; defualt=1)
-%   args.boundary:      boundary event (default='boundary')
+%   args.
 %
+%       chanArray   - channel(s) to filter
+%       params:     parameters for pop_basicfilter as a string
+%       %     'Filter'      - 'bandpass'- Band pass.
+%                     'lowpass' - Low pass (attenuate high frequency).
+%                     'highpass'- High pass (attenuate low frequency.
+%                     'PMnotch' - stop-band Parks-McClellan Notch.
+%     'Design'      - type of filter. 'butter' = IIR Butterworth,'fir'= windowed FIR
+%     'Cutoff'      - lower cutoff (high-pass) pass and higher cuttof (low-pass) in the format [lower higher]
+%     'Order'       - length of the filter in points {default 3*fix(srate/locutoff)}
+%     'RemoveDC'    - remove mean value (DC offset) before filtering. 'on'/'off'
+%     'Boundary'    - specify boundary event code. e.g 'boundary'
+%           
 % OUTPUT:
 %
-%   results:
+%   results:    'done'
 %
 % Bishop, Christopher W.
 %   UC Davis
-%   Miller Lab 2011
-%   cwbishop@ucdavis.edu
+%   University of Washington 
+%   11/2013
 
-%% LOAD EEG STRUCT
 global EEG;
 
-%% DEFAULTS
-% Remove DC offset (1=yes, 0=no)
-if ~isfield(args, 'remove_dc'), args.remove_dc=1; end
-% Channels to filter
-if ~isfield(args, 'channels') || isempty(args.channels), args.channels=1:EEG.nbchan; end
-% Boundary event code
-if ~isfield(args, 'boundary') || isempty(args.boundary), args.boundary='boundary'; end
-
-EEG=pop_basicfilter( EEG, args.channels, args.locutoff, args.hicutoff, args.filterorder, args.typef, args.remove_dc, args.boundary );
+EEG = eval(['pop_basicfilter(EEG, args.chanArray,' args.params ');']);
+% [EEG ferror] = basicfilter(EEG, chanArray, locutoff, hicutoff, filterorder, typef, remove_dc, boundary)
+% EEG=pop_basicfilter( EEG, args.chanArray, args.locutoff, args.hicutoff, args.filterorder, args.typef, args.remove_dc, args.boundary
 
 results='done';
