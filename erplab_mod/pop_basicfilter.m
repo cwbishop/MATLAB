@@ -287,7 +287,8 @@ end
 if length(EEG) > 1
         options1 = {chanArray, 'Filter',p.Results.Filter, 'Design',  p.Results.Design, 'Cutoff', p.Results.Cutoff, 'Order', p.Results.Order,...
                 'RemoveDC', p.Results.RemoveDC, 'Boundary', p.Results.Boundary, 'History', 'gui'};
-        [ EEG, com ] = eeg_eval( 'pop_basicfilter', EEG, 'warning', 'on', 'params', options1);
+        %131104 CWB: disabled warning for batch processing
+        [ EEG, com ] = eeg_eval( 'pop_basicfilter', EEG, 'warning', 'off', 'params', options1);
         return;
 end
 
