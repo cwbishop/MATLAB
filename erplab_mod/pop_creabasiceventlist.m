@@ -211,10 +211,13 @@ end
 % process multiple datasets. Updated August 23, 2013 JLC
 %
 if length(EEG) > 1
+    
+        % Changed History
         options1 = {'Eventlist', p.Results.Eventlist, 'BoundaryString', p.Results.BoundaryString,...
                 'BoundaryNumeric', p.Results.BoundaryNumeric,'Warning', p.Results.Warning,...
-                'AlphanumericCleaning', p.Results.AlphanumericCleaning, 'History', 'gui'};
-        [ EEG, com ] = eeg_eval( 'pop_creabasiceventlist', EEG, 'warning', 'on', 'params', options1);
+                'AlphanumericCleaning', p.Results.AlphanumericCleaning, 'History', p.Results.History};
+        % Turned off warning
+        [ EEG, com ] = eeg_eval( 'pop_creabasiceventlist', EEG, 'warning', 'off', 'params', options1);
         return;
 end
 
