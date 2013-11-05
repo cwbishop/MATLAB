@@ -32,6 +32,8 @@ function [results]=gab_task_erplab_basicfilter(args)
 
 global EEG;
 
+% pop_function is more human-readable, so we'll use this to parse our
+% inputs into inputs that basicfilter actually understands.
 EEG = eval(['pop_basicfilter(EEG, args.chanArray,' args.params ');']);
 % [EEG ferror] = basicfilter(EEG, chanArray, locutoff, hicutoff, filterorder, typef, remove_dc, boundary)
 % EEG=pop_basicfilter( EEG, args.chanArray, args.locutoff, args.hicutoff, args.filterorder, args.typef, args.remove_dc, args.boundary

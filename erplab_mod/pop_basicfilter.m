@@ -285,8 +285,10 @@ end
 % process multiple datasets. Updated August 23, 2013 JLC
 %
 if length(EEG) > 1
+        %131104 CWB: edited saved history to reflect initial setup, instead
+        %of being hard-coded to 'gui'.
         options1 = {chanArray, 'Filter',p.Results.Filter, 'Design',  p.Results.Design, 'Cutoff', p.Results.Cutoff, 'Order', p.Results.Order,...
-                'RemoveDC', p.Results.RemoveDC, 'Boundary', p.Results.Boundary, 'History', 'gui'};
+                'RemoveDC', p.Results.RemoveDC, 'Boundary', p.Results.Boundary, 'History', p.Results.History};
         %131104 CWB: disabled warning for batch processing
         [ EEG, com ] = eeg_eval( 'pop_basicfilter', EEG, 'warning', 'off', 'params', options1);
         return;
