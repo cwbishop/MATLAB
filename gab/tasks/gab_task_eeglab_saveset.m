@@ -6,11 +6,21 @@ function results=gab_task_eeglab_saveset(args)
 %
 % INPUT:
 %
-%   args.filename:  Name of file
-%   args.filepath:  file path
-%   args.check:     run syntax check
-%   args.savemode:  see eeg_options for details. Edit with
-%                   pop_editoptions.m
+%   args.
+%       params
+%           'filename' - [string] name of the file to save to
+%           'filepath' - [string] path of the file to save to
+%           'check'    - ['on'|'off'] perform extended syntax check. Default 'off'.
+%           'savemode' - ['resave'|'onefile'|'twofiles'] 'resave' resave the 
+%                current dataset using the filename and path stored
+%                in the dataset; 'onefile' saves the full EEG 
+%                structure in a Matlab '.set' file, 'twofiles' saves 
+%                the structure without the data in a Matlab '.set' file
+%                and the transposed data in a binary float '.dat' file.
+%                By default the option from the eeg_options.m file is 
+%                used.
+%           'version' - ['6'|'7.3'] save Matlab file as version 6 (default) or
+%                   '7.3' (large files).
 %
 % OUTPUT:
 %
@@ -24,12 +34,6 @@ function results=gab_task_eeglab_saveset(args)
 global EEG;
 
 %% DEFAULTS
-% Set savemode and check to [] so eeg_options default is used.
-if ~isfield(args, 'savemode'), args.savemode=''; end
-if ~isfield(args, 'check'), args.check='off'; end
-% filepath set to current working directory if not specified.
-if ~isfield(args, 'filepath'), args.filepath=pwd; end
-
-EEG=pop_saveset(EEG, 'filename', args.filename, 'filepath', args.filepath, 'check', args.check, 'savemode', args.savemode);
+EEG=pop_saveset(EEG, args.params{:});
 
 results='done';
