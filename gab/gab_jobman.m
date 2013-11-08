@@ -8,8 +8,8 @@ if ~exist('foreman','var')||isempty(foreman)
     %foreman decides how the jobs are run. A sun-grid-engine based foreman
     %and a basic foreman are presented, but you system may be optomized
     %by writing your own foreman
-    foreman=@gab_foreman_pbs_qsub; %this default foreman is a sun-grid engine based foreman that uses qsub.
-%     foreman=@gab_run_job; %use this line and comment line above if you want to run the jobs directly in the current matlab window
+%     foreman=@gab_foreman_pbs_qsub; %this default foreman is a sun-grid engine based foreman that uses qsub.
+    foreman=@gab_run_job; %use this line and comment line above if you want to run the jobs directly in the current matlab window
 end
 
 if ~iscell(jobs)

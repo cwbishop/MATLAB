@@ -50,7 +50,7 @@ for f=1:length(func_list)
         [~, outp]=dos(command);
         
         % Grab MD5 Hash
-        task.funcHashes(f).md5=outp(find(result=='/', 1, 'last') +2: find(result=='/', 1, 'last') +2 +31);
+        task.funcHashes(f).md5=outp(find(outp=='/', 1, 'last') +2: find(outp=='/', 1, 'last') +2 +31);
     else
         error('Unknown operating system');
     end % if isunix/ispc
