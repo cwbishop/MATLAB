@@ -2,12 +2,13 @@
 % This program writes to the rambuffer once it has cyled half way through the buffer
 
 % filePath - set this to wherever the examples are stored
-filePath = 'C:\TDT\ActiveX\ActXExamples\matlab\';
+filePath = 'C:\Users\cwbishop\Documents\GitHub\MATLAB\TDT\M-Files\';
 
 npts=100000;  % Size of the serial buffer
 bufpts = npts/2; % Number of points to write to buffer
 
-RP = Circuit_Loader('C:\TDT\ActiveX\ActXExamples\RP_files\Continuous_Play.rcx'); % Runs Circuit_Loader
+% Altered for USB connection
+RP = Circuit_Loader('USB', 1, 'C:\Users\cwbishop\Documents\GitHub\MATLAB\TDT\RP_Files\Continuous_Play.rcx'); % Runs Circuit_Loader
 
 if all(bitget(RP.GetStatus,1:3))
 
