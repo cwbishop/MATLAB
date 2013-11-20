@@ -2,20 +2,20 @@
 % This program writes to the rambuffer once it has cyled half way through the buffer
 
 % filePath - set this to wherever the examples are stored
-filePath = 'C:\Users\cwbishop\Documents\GitHub\MATLAB\TDT\M-Files\';
+filePath = 'C:\Users\cwbishop\Documents\GitHub\MATLAB\ActiveXExamples\Matlab\';
 
 npts=100000;  % Size of the serial buffer
 bufpts = npts/2; % Number of points to write to buffer
 
 % Altered for USB connection
-RP = Circuit_Loader('USB', 1, 'C:\Users\cwbishop\Documents\GitHub\MATLAB\TDT\RP_Files\Continuous_Play.rcx'); % Runs Circuit_Loader
+RP = Circuit_Loader('USB', 1, 'C:\Users\cwbishop\Documents\GitHub\MATLAB\ActiveXExamples\RP_Files\Continuous_Play.rcx'); % Runs Circuit_Loader
 
 if all(bitget(RP.GetStatus,1:3))
 
     % Generate two tone signals to play out in MATLAB
     freq1=1000;
     freq2=5000;
-    fs=97656.25;
+    fs=RP.GetSFreq; % Dynamically get sampling frequency
     
     t=(1:bufpts)/fs;
     s1=sin(2*pi*t*freq1);
