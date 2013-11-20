@@ -7,11 +7,14 @@ fs=97656.25;
 t=(1:bufpts)/fs;
 noise=t;
 
-RP = Circuit_Loader('C:\TDT\ActiveX\ActXExamples\RP_files\TwoCh_Continuous_Acquire.rcx');
+% Altered for USB connection
+RP = Circuit_Loader('USB', 1, 'C:\Users\cwbishop\Documents\GitHub\MATLAB\ActiveXExamples\RP_Files\TwoCh_Continuous_Acquire.rcx'); % Runs Circuit_Loader
+
+% RP = Circuit_Loader('C:\TDT\ActiveX\ActXExamples\RP_files\TwoCh_Continuous_Acquire.rcx');
 
 if all(bitget(RP.GetStatus,1:3))
     
-    fnoise = fopen('C:\TDT\ActiveX\ActXExamples\matlab\shuf2.dat','w');
+    fnoise = fopen('C:\Users\cwbishop\Documents\GitHub\MATLAB\ActiveXExamples\matlab\shuf2.dat','w');
     plot(t,noise);
     RP.SoftTrg(1);
     
