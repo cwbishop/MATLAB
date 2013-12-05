@@ -1,4 +1,4 @@
-function [DATA]=erplab_getsweeps(EEG, BINS, ARTCRITE)
+function [DATA IND]=erplab_getsweeps(EEG, BINS, ARTCRITE, PREC)
 %% DESCRIPTION:
 %
 %   Function to extract bin labeled sweeps from EEG structure. This proved
@@ -23,15 +23,17 @@ function [DATA]=erplab_getsweeps(EEG, BINS, ARTCRITE)
 %               %  artcrite = 0 --> averaging all (good and bad trials)
 %               %  artcrite = 1 --> averaging only good trials
 %               %  artcrite = 2 --> averaging only bad trials
+%   PREC:   string, data precision ('single', 'double')
 %
 % OUTPUT:
 %
 %   DATA:   CxTxN data matrix, where C=the number of channels, T=the number
 %           of time points and N is the number of sweeps.
+%   IND:    index of included epochs
 %
 % Bishop, Christopher W.
 %   University of Washington
-%   11/2013
+%   12/2013
 %   cwbishop@uw.edu
 
 %% DEFAULTS
@@ -45,16 +47,20 @@ sfields1 = regexpi(F, '\w*E$', 'match'); %
 sfields2 = [sfields1{:}];
 fields4reject  = regexprep(sfields2,'E',''); % Rejection fields
 
+% Initialize data like ERPLAB does ...
+binsum=zeros(size(EEG.data,1), size(EEG.data,2));
+DATA=zeros(size(EEG.data,1),size(EEG.data,2));
+
 IND=[];
 
-for i=1:length(EEG.event)
-    bini=EEG.event(i).bini;
-        
+for i=1:length(EEG.epoch)
+    bini=EEG.epoch(i).eventbini{1}; % stored as cell, so make it double array
+    bepoch=i;
     % Flag set to 1 if included, set to 0 if rejected.
     %   Recall that rejection information is stored based on EPOCH
     %   information, not on individual eventinfo.
 %     bepoch=EEG.EVENTLIST.eventinfo(i).bepoch;
-    bepoch=EEG.event(i).epoch; % epoch is just 
+%     bepoch=EEG.event(i).epoch; % epoch is just 
     try
         flag = eegartifacts(EEG.reject, fields4reject, bepoch);
     catch
@@ -80,8 +86,14 @@ for i=1:length(EEG.event)
     % add this sweep to the index. 
     if ~isempty(find(ismember(bini, BINS),1)) && flag
         IND(end+1)=bepoch;
+        
+        % Tracking binsum
+        binsum(:,:,1)=binsum(:,:,1)+EEG.data(:,:,i);
     end % if 
 end % i
 
+DATA(:,:,1)=binsum(:,:,1)./length(IND); 
+
+% DATA=mean(EEG.data(:,:,IND)); 
 %% COPY SELECTED EEG DATA TO VARIABLE
-DATA=EEG.data(:,:,IND); 
+% DATA=eval([PREC '(EEG.data(:,:,IND));']); 
