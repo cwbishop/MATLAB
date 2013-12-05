@@ -1,4 +1,4 @@
-function [DATA IND]=erplab_getsweeps(EEG, BINS, ARTCRITE, PREC)
+function [DATA IND binsum]=erplab_getsweeps(EEG, BINS, ARTCRITE)
 %% DESCRIPTION:
 %
 %   Function to extract bin labeled sweeps from EEG structure. This proved
@@ -23,13 +23,20 @@ function [DATA IND]=erplab_getsweeps(EEG, BINS, ARTCRITE, PREC)
 %               %  artcrite = 0 --> averaging all (good and bad trials)
 %               %  artcrite = 1 --> averaging only good trials
 %               %  artcrite = 2 --> averaging only bad trials
-%   PREC:   string, data precision ('single', 'double')
 %
 % OUTPUT:
 %
 %   DATA:   CxTxN data matrix, where C=the number of channels, T=the number
 %           of time points and N is the number of sweeps.
 %   IND:    index of included epochs
+%   binsum: I was having trouble matching ERPLAB's output exactly. Turns
+%           out the differences were due to nuances in the averaging
+%           process that aren't easily considered here. To match ERPLAB
+%           precisely, divide binsum by length(IND). Note that
+%           sum(DATA,3)./length(IND) will not match precisely and I can't
+%           seem to make it so ... although sum(DATA,3) and bindata match
+%           exactly. So, there's some nuance in the function calls or type
+%           conversions.
 %
 % Bishop, Christopher W.
 %   University of Washington
@@ -100,22 +107,4 @@ end % i
 %   this nuance down. 
 % DATA(:,:,1)=binsum(:,:,1)./length(IND); 
 
-% At this point
-%
-% (unique(binsum - sum(EEG.data(:,:,IND), 3)))
-%
-% Returns just 0. So the two calls are absolutely equivalent (as they
-% should be)
-% DATA=zeros(size(EEG.data,1), size(EEG.data,2), length(IND)); 
 DATA=EEG.data(:,:,IND); 
-
-% By here, 
-%
-% size(unique(binsum - sum(EEG.data(:,:,IND), 3))) evaluates to [1 1] (just
-% a zero) BUT
-%
-% size(unique(binsum - sum(DATA,3))) evaluates to [1
-% 21946]...what...the...fuck.
-
-%% COPY SELECTED EEG DATA TO VARIABLE
-% DATA=eval([PREC '(EEG.data(:,:,IND));']); 
