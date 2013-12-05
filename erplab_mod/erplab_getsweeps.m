@@ -1,4 +1,4 @@
-function [DATA IND binsum]=erplab_getsweeps(EEG, BINS, ARTCRITE)
+function [DATA IND]=erplab_getsweeps(EEG, BINS, ARTCRITE)
 %% DESCRIPTION:
 %
 %   Function to extract bin labeled sweeps from EEG structure. This proved
@@ -27,16 +27,13 @@ function [DATA IND binsum]=erplab_getsweeps(EEG, BINS, ARTCRITE)
 % OUTPUT:
 %
 %   DATA:   CxTxN data matrix, where C=the number of channels, T=the number
-%           of time points and N is the number of sweeps.
+%           of time points and N is the number of sweeps. Note that to
+%           match ERPLAB output PRECISELY, use the following command to
+%           compute the ERP
+%
+%               double(sum(DATA,3))./length(IND);
+%
 %   IND:    index of included epochs
-%   binsum: I was having trouble matching ERPLAB's output exactly. Turns
-%           out the differences were due to nuances in the averaging
-%           process that aren't easily considered here. To match ERPLAB
-%           precisely, divide binsum by length(IND). Note that
-%           sum(DATA,3)./length(IND) will not match precisely and I can't
-%           seem to make it so ... although sum(DATA,3) and bindata match
-%           exactly. So, there's some nuance in the function calls or type
-%           conversions.
 %
 % Bishop, Christopher W.
 %   University of Washington
@@ -95,16 +92,9 @@ for i=1:length(EEG.epoch)
         IND(end+1)=bepoch;
         
         % Tracking binsum
+        %   used for debugging
         binsum(:,:,1)=binsum(:,:,1)+EEG.data(:,:,i);
     end % if 
 end % i
-
-%% SANITY CHECK
-%   When this line is enabled, DATA should match the average ERP generated
-%   by ERPLAB's 'averager.m' function *precisely*. Even SLIGHT deviations
-%   from this call (e.g., omitting the parantheses of DATA) will lead to
-%   differences due to data precision. Crazy how long it took me to track
-%   this nuance down. 
-% DATA(:,:,1)=binsum(:,:,1)./length(IND); 
 
 DATA=EEG.data(:,:,IND); 
