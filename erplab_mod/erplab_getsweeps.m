@@ -1,4 +1,4 @@
-function [DATA IND]=erplab_getsweeps(EEG, BINS, ARTCRITE)
+function [DATA, IND]=erplab_getsweeps(EEG, BINS, ARTCRITE)
 %% DESCRIPTION:
 %
 %   Function to extract bin labeled sweeps from EEG structure. This proved
@@ -53,7 +53,6 @@ fields4reject  = regexprep(sfields2,'E',''); % Rejection fields
 
 % Initialize data like ERPLAB does ...
 binsum=zeros(size(EEG.data,1), size(EEG.data,2));
-DATA=zeros(size(EEG.data,1),size(EEG.data,2));
 
 IND=[];
 
