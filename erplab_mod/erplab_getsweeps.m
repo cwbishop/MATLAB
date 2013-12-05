@@ -92,8 +92,30 @@ for i=1:length(EEG.epoch)
     end % if 
 end % i
 
-DATA(:,:,1)=binsum(:,:,1)./length(IND); 
+%% SANITY CHECK
+%   When this line is enabled, DATA should match the average ERP generated
+%   by ERPLAB's 'averager.m' function *precisely*. Even SLIGHT deviations
+%   from this call (e.g., omitting the parantheses of DATA) will lead to
+%   differences due to data precision. Crazy how long it took me to track
+%   this nuance down. 
+% DATA(:,:,1)=binsum(:,:,1)./length(IND); 
 
-% DATA=mean(EEG.data(:,:,IND)); 
+% At this point
+%
+% (unique(binsum - sum(EEG.data(:,:,IND), 3)))
+%
+% Returns just 0. So the two calls are absolutely equivalent (as they
+% should be)
+% DATA=zeros(size(EEG.data,1), size(EEG.data,2), length(IND)); 
+DATA=EEG.data(:,:,IND); 
+
+% By here, 
+%
+% size(unique(binsum - sum(EEG.data(:,:,IND), 3))) evaluates to [1 1] (just
+% a zero) BUT
+%
+% size(unique(binsum - sum(DATA,3))) evaluates to [1
+% 21946]...what...the...fuck.
+
 %% COPY SELECTED EEG DATA TO VARIABLE
 % DATA=eval([PREC '(EEG.data(:,:,IND));']); 
