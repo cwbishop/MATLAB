@@ -10,6 +10,8 @@ function [DATA, IND]=erplab_getsweeps(EEG, BINS, ARTCRITE)
 %
 %   Code is based largely off of MSPE_ERPLAB_getbindata.m
 %
+%   Tested with ERPLAB version 4.0.2.3.
+%
 % INPUT:
 %
 % INPUT:
