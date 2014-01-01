@@ -446,14 +446,52 @@ if type == 'cnt'
       % original code.
       if (bReadIntoMemory == true)
           if h.channeloffset <= 1
-                dat=fread(fid, [h.nchannels Inf], r.dataformat);
-                if size(dat,2) < r.ldnsamples
-                    dat=single(dat);
-                    r.ldnsamples = size(dat,2);
-                else
-                    dat=single(dat(:,1:r.ldnsamples));
-                end;
+                %% CWB:
+                %   EEGLAB first loads the whole file and then truncates
+                %   based on a few criteria. However, this does not work
+                %   well with large datasets that simply CANNOT be loaded
+                %   into memory. Modifying this section to just load in the
+                %   appropriate section of data.
+                
+                % First, see where we are in the file.
+                cpos=ftell(fid); 
+                try
+                    % Try reading in the requested number of samples
+                    dat=fread(fid, [h.nchannels r.ldnsamples], r.dataformat);                    
+                catch
+                    % If the read fails, assume there are not enough
+                    % samples in the data file.
+                    
+                    % Make sure file pointer is in correct position
+                    fseek(fid, cpos, 'bof');
+                    
+                    % Read in all data samples
+                    dat=fread(fid, [h.nchannels Inf], r.dataformat);
+                    
+                    % Reset the ldnsamples value to reflect the data
+                    r.ldnsamples=size(dat,2); 
+                end % try catch
+                
+                % Convert to single precision
+                %   Shouldn't this convert to double OR single depending on
+                %   what's in eeglab_options? Apparently this option is
+                %   ignored with CNT files. At least here. Weird. Easy
+                %   enough to fix. 
+                eeglab_options; 
+                if option_single==1
+                    dat=single(dat);     
+                end % if option_single
+                
+                % original code
+%                 dat=fread(fid, [h.nchannels Inf], r.dataformat);
+%                 if size(dat,2) < r.ldnsamples
+%                     dat=single(dat);
+%                     r.ldnsamples = size(dat,2);
+%                 else
+%                     dat=single(dat(:,1:r.ldnsamples));
+%                 end;
           else
+              warning('CWB has not looked at this section of code. Take a close look and use with care');
               h.channeloffset = h.channeloffset/2;
               % reading data in blocks
               dat = zeros( h.nchannels, r.ldnsamples, 'single');
