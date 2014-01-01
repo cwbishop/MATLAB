@@ -112,6 +112,7 @@ end
 
 change_axis = 0;
 ymax = 0;
+ymin = 0;
 
 if size(barvalues,1) ~= size(errors,1) || size(barvalues,2) ~= size(errors,2)
 	error('barvalues and errors matrix must be of same dimension');
@@ -153,13 +154,14 @@ else
 		x = mean(x([1 3],:));
 		handles.errors(i) = errorbar(x, barvalues(:,i), errors(:,i), 'k', 'linestyle', 'none', 'linewidth', 2);
 		ymax = max([ymax; abs(barvalues(:,i)+errors(:,i))]);
+        ymin = min([ymin; barvalues(:,i)-errors(:,i)]);
 	end
 	
 	if error_sides == 1
 		set(gca,'children', flipud(get(gca,'children')));
 	end
 	
-	ylim([0 ymax*1.1]);
+	ylim([ymin*1.1 ymax*1.1]);
 	xlim([0.5 numgroups-change_axis+0.5]);
 	
 	if strcmp(legend_type, 'axis')
@@ -199,5 +201,7 @@ else
 	
 	hold off
 end
+
+% Reset x-values
 
 set(gca, 'TickLength', [0.01 0.025]); 

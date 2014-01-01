@@ -48,5 +48,5 @@ for i=1:length(CDEFS)
     end % switch
     
     % Append color
-    CMAP(:,i)=out; 
+    CMAP(i,:)=out; 
 end % i=1:length(CDEFS
