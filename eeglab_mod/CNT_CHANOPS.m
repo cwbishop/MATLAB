@@ -1,4 +1,4 @@
-function CNT_CHANOPS(IN, OUT, CHANOPS, OCHLAB)
+function CNT_CHANOPS(IN, OUT, CHANOPS, OCHLAB, BLOCKSIZE)
 %% DESCRIPTION:
 %
 %   Function to perform channel operations (e.g., referencing) of Neuroscan
@@ -31,6 +31,9 @@ function CNT_CHANOPS(IN, OUT, CHANOPS, OCHLAB)
 %               applications.
 %   OCHLAB: cell array, output channel names. Must be the same length as
 %           CHANOPS. (optional input)
+%   BLOCKSIZE:  integer, number of seconds of continuous data to read in
+%               simultaneously (default=1); To load the whole dataset
+%               (useful for testing on small data sets) set to -1.
 %
 % OUTPUT:
 %
@@ -39,3 +42,141 @@ function CNT_CHANOPS(IN, OUT, CHANOPS, OCHLAB)
 % Christopher W. Bishop
 %   1/14
 %   University of Washington
+
+%% INPUT CHECK
+if ~exist('BLOCKSIZE', 'var') || isempty(BLOCKSIZE), BLOCKSIZE=1; end 
+
+%% GET EVENT TABLE
+%   use same call used to read data segment below
+if BLOCKSIZE>0 && BLOCKSIZE<1
+    ostruct=CNT_READ(IN, [0 BLOCKSIZE]); 
+else
+    ostruct=CNT_READ(IN, [0 1]); 
+end % if 
+
+
+
+%% INITIATE NECESSARY VARIABLES
+CHLAB=cell(length(ostruct.electloc),1); % CHannel LABels
+
+
+% Number of total samples in the CNT file
+nsamps=ostruct.header.numsamples;   % total number of recorded samples
+srate=ostruct.header.rate;         % rate of recording
+
+%% DOUBLE CHECK BLOCK SIZE
+if BLOCKSIZE==-1
+    BLOCKSIZE=ceil(nsamps./(srate));
+end % if BLOCKSIZE==-1
+
+%% GRAB CHANNEL LABELS
+%   Need these later to figure out operation information.
+for i=1:length(ostruct.electloc)
+    CHLAB{i}=ostruct.electloc(i).lab;
+end % i=1:length(ostruct.electloc)
+
+%% LOOP THROUGH DATA
+for i=1:ceil(nsamps./(BLOCKSIZE*srate))
+    
+    %% READ DATA SEGMENT
+    tstruct=CNT_READ(IN, [(i-1)*BLOCKSIZE i*BLOCKSIZE]); 
+    data=tstruct.data; 
+    
+    %% PERFORM CHANNEL OPERATION
+    for c=1:length(CHANOPS)
+        odata(c,:)=EVAL_CHANOPS(data, CHLAB, CHANOPS{c}); 
+    end % c=1:length(CHANOPS)
+    
+    %% REARRANGE CNT DATASET INFORMATION FOR WRITING
+    %   call EDIT_CNTSTRUCT
+    OSTRUCT=EDIT_CNTSTRUCT(tstruct, OCHLAB, odata); 
+    
+    %% WRITE DATA SEGMENT
+    %   Edit writecnt to allow appending of data, writing just the event
+    %   table, and writing everything at once. This will be a bear, but
+    %   made easier by the fact that we have something to start with. 
+    writecnt(OUT, OSTRUCT);
+    
+end % for i=1:ceil(nsamps./ ...)
+end % CNT_CHANOPS
+
+function CNT=CNT_READ(IN, T)
+%% DESCRIPTION:
+%
+%   Function to read a given CNT data segment (defined by time inputs). 
+
+%% INPUT CHECK
+if length(T)==1, T=[T T]; end % need 2 elements
+
+CNT=loadcnt(IN, 't1', T(1), 'lddur', diff(T)); 
+end % CNT_READ
+
+function OCNT=EDIT_CNTSTRUCT(CNT, OCHLAB, DATA) 
+%% DESCRIPTION:
+%
+%   Function to change CNT structure so it plays nicely with writecnt.m.
+%
+% INPUT:
+%
+%
+% OUTPUT:
+%
+%   
+%
+% Christopher W. Bishop
+%   University of Washington 
+%   1/14
+
+%% COPY OVER ALL CNT INFO
+OCNT=CNT; 
+
+%% PUT IN DATA
+CNT.data=DATA;
+
+%% EDIT HEADER
+CNT.nchannels % definitely needs to change
+
+CNT.header.numevents % does this need to change?
+CNT.header.nsweeps % This will have to change if data in sweeps, I guess?
+CNT.header.pnts %   shouldn't need to change.
+end % EDIT_CNTHEADER
+
+function [ODATA]=EVAL_CHANOPS(DATA, CHLAB, OP)
+%% DESCRIPTION:
+%
+%   Function to interpret and evaluate specified channel operation strings.
+%   Notice that these data are first converted from their BDF format to a
+%   microVolt signal according similar to BIOSIG.  The mathematical
+%   operations are then performed on these transformed data and the data
+%   are then transferred BACK into BDF format.  
+%
+% INPUT:
+%
+%   DATA:   CxT matrix, where C is the number of channels and T is the
+%           number of timepoints
+%   CHLAB:  Cell array, each element is the channel label corresponding to
+%           the corresponding row of DATA. For instance, CHLAB{1}='FP1'
+%           associates the data in the first row of DATA with channel FP1.
+%           Care should be taken to properly label since improper labeling
+%           will lead to incorrect channel operations.
+%
+% OUTPUT:
+%
+%   ODATA:  Transformed BDF data.
+%
+% Christopher W Bishop
+%   University of Washington
+%   1/14
+%   cwbishop@uw.edu
+
+% First, assign DATA to variables. Variables will be named after the
+% channel labels
+for c=1:length(CHLAB)
+    eval([CHLAB{c} '=[];']); 
+    eval([CHLAB{c} '=DATA(c,:);']);    
+end % c=1:length(HDR.CHLAB)
+
+% Evaluate channel operation
+eval('ODATA=eval(OP);'); 
+
+end % EVAL_CHANOPS

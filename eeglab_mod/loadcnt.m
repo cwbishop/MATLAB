@@ -345,6 +345,15 @@ if isempty(r.ldnsamples)
      end;
 end;
 
+%% SAMPLE NUMBER CHECK
+if r.ldnsamples-r.sample1 > h.numsamples-r.sample1
+    tldnsamples=r.ldnsamples; 
+    r.ldnsamples=h.numsamples-r.sample1; 
+    warning('loadcnt:SampleError', ['User requested ' num2str(tldnsamples) ' loaded beginning at sample ' num2str(r.sample1) '.\n' ...
+        'Too few samples in data (' num2str(h.numsamples-r.sample1) '). Loaded samples adjusted to ' num2str(r.ldnsamples) '.']);        
+    clear tldnsamples; 
+end % r.ldnsamples-r.sample1 ...
+
 % channel offset
 % --------------
 if ~isempty(r.blockread)
@@ -453,24 +462,28 @@ if type == 'cnt'
                 %   into memory. Modifying this section to just load in the
                 %   appropriate section of data.
                 
-                % First, see where we are in the file.
-                cpos=ftell(fid); 
-                try
-                    % Try reading in the requested number of samples
-                    dat=fread(fid, [h.nchannels r.ldnsamples], r.dataformat);                    
-                catch
-                    % If the read fails, assume there are not enough
-                    % samples in the data file.
-                    
-                    % Make sure file pointer is in correct position
-                    fseek(fid, cpos, 'bof');
-                    
-                    % Read in all data samples
-                    dat=fread(fid, [h.nchannels Inf], r.dataformat);
-                    
-                    % Reset the ldnsamples value to reflect the data
-                    r.ldnsamples=size(dat,2); 
-                end % try catch
+                dat=fread(fid, [h.nchannels r.ldnsamples], r.dataformat);  
+%                 try
+%                     % Try reading in the requested number of samples
+%                     %   Actually, this will almost always be true, even if
+%                     %   the number of samples read in grossly exceeds the
+%                     %   number of real data samples. There's no safeguard
+%                     %   here against loading in parts of the event table as
+%                     %   data. 
+%                     dat=fread(fid, [h.nchannels r.ldnsamples], r.dataformat);                    
+%                 catch
+%                     % If the read fails, assume there are not enough
+%                     % samples in the data file.
+%                     
+%                     % Make sure file pointer is in correct position
+%                     fseek(fid, cpos, 'bof');
+%                     
+%                     % Read in all data samples
+%                     dat=fread(fid, [h.nchannels Inf], r.dataformat);
+%                     
+%                     % Reset the ldnsamples value to reflect the data
+%                     r.ldnsamples=size(dat,2); 
+%                 end % try catch
                 
                 % Convert to single precision
                 %   Shouldn't this convert to double OR single depending on
