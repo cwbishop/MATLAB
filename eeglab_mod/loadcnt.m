@@ -345,7 +345,11 @@ if isempty(r.ldnsamples)
      end;
 end;
 
-%% SAMPLE NUMBER CHECK
+%% CWB SAMPLE NUMBER CHECK
+%    Verifies that the number of samples we'll load later does not exceed
+%    the total number of available data samples. CWB ran across this error
+%    when he accidentally entered a total sample number larger than the
+%    total number of available data points. 
 if r.ldnsamples-r.sample1 > h.numsamples-r.sample1
     tldnsamples=r.ldnsamples; 
     r.ldnsamples=h.numsamples-r.sample1; 
@@ -463,39 +467,17 @@ if type == 'cnt'
                 %   appropriate section of data.
                 
                 dat=fread(fid, [h.nchannels r.ldnsamples], r.dataformat);  
-%                 try
-%                     % Try reading in the requested number of samples
-%                     %   Actually, this will almost always be true, even if
-%                     %   the number of samples read in grossly exceeds the
-%                     %   number of real data samples. There's no safeguard
-%                     %   here against loading in parts of the event table as
-%                     %   data. 
-%                     dat=fread(fid, [h.nchannels r.ldnsamples], r.dataformat);                    
-%                 catch
-%                     % If the read fails, assume there are not enough
-%                     % samples in the data file.
-%                     
-%                     % Make sure file pointer is in correct position
-%                     fseek(fid, cpos, 'bof');
-%                     
-%                     % Read in all data samples
-%                     dat=fread(fid, [h.nchannels Inf], r.dataformat);
-%                     
-%                     % Reset the ldnsamples value to reflect the data
-%                     r.ldnsamples=size(dat,2); 
-%                 end % try catch
-                
                 % Convert to single precision
-                %   Shouldn't this convert to double OR single depending on
-                %   what's in eeglab_options? Apparently this option is
-                %   ignored with CNT files. At least here. Weird. Easy
-                %   enough to fix. 
+                %   loadcnt always converted to single precision. CWB
+                %   modified to check eeglab_options and only convert if
+                %   single precision is requested by user. 
                 eeglab_options; 
                 if option_single==1
                     dat=single(dat);     
                 end % if option_single
                 
                 % original code
+                %   CWB commented this out. 
 %                 dat=fread(fid, [h.nchannels Inf], r.dataformat);
 %                 if size(dat,2) < r.ldnsamples
 %                     dat=single(dat);
@@ -503,8 +485,7 @@ if type == 'cnt'
 %                 else
 %                     dat=single(dat(:,1:r.ldnsamples));
 %                 end;
-          else
-              warning('CWB has not looked at this section of code. Take a close look and use with care');
+          else              
               h.channeloffset = h.channeloffset/2;
               % reading data in blocks
               dat = zeros( h.nchannels, r.ldnsamples, 'single');
