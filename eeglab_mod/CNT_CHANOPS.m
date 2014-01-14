@@ -95,7 +95,7 @@ for i=1:ceil(nsamps./(BLOCKSIZE*srate))
     %   Edit writecnt to allow appending of data, writing just the event
     %   table, and writing everything at once. This will be a bear, but
     %   made easier by the fact that we have something to start with. 
-    writecnt(OUT, OSTRUCT);
+    writecnt(OUT, OSTRUCT, 'dataformat', OSTRUCT.dataformat);
     
 end % for i=1:ceil(nsamps./ ...)
 end % CNT_CHANOPS
@@ -131,14 +131,28 @@ function OCNT=EDIT_CNTSTRUCT(CNT, OCHLAB, DATA)
 OCNT=CNT; 
 
 %% PUT IN DATA
-CNT.data=DATA;
+OCNT.data=DATA;
 
-%% EDIT HEADER
-CNT.nchannels % definitely needs to change
+%% LABEL INFORMATION
 
-CNT.header.numevents % does this need to change?
-CNT.header.nsweeps % This will have to change if data in sweeps, I guess?
-CNT.header.pnts %   shouldn't need to change.
+% Rename channel labels
+for c=1:size(DATA,1)
+    OCNT.electloc(c).lab=OCHLAB{c};
+    OCNT.electloc(c).reference=-1; % nonsense value so I don't forget this is a custom reference.
+end % c=1:size(DATA,1)
+
+% Discard channels we won't use
+OCNT.electloc=OCNT.electloc(1:size(DATA,1)); 
+
+%% MODIFY HEADER
+
+%% FIELDS THAT NEED CHANGING
+%   electrode information is 75 bytes each. Confirmed in loadcnt.m
+%
+% CWB: need to add functionality for 16 bit CNTs (2 bytes instead of 4)
+OCNT.header.nextfile=OCNT.header.nextfile - (numel(CNT.data) - numel(OCNT.data)).*4 - (length(CNT.electloc) - length(OCNT.electloc)).*75; % subtract data size AND electrode information
+OCNT.header.nchannels=size(DATA,1);  % definitely needs to change
+OCNT.header.eventtablepos=OCNT.header.eventtablepos - (numel(CNT.data) - numel(OCNT.data)).*4 - (length(CNT.electloc) - length(OCNT.electloc)).*75; % subtract data size AND electrode information
 end % EDIT_CNTHEADER
 
 function [ODATA]=EVAL_CHANOPS(DATA, CHLAB, OP)

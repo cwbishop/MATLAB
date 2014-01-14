@@ -13,6 +13,15 @@
 %                   cntdataset.event
 %                   cntdataset.tag
 %                   cntdataset.endtag
+%                   
+%                   optional fields
+%                   cntdataset.junk:        crap between
+%                                           cntdataset.nextfile and eof-1.
+%                                           Some of this "crap" is used to
+%                                           autodetect data precision in
+%                                           loadcnt.m. If the user wants it
+%                                           written, write it to file. 
+%                   cntdataset.dataformat:  'int32' or 'int16'
 %
 % Optional inputs:
 %  't1'         - start at time t1, default 0
@@ -63,6 +72,7 @@ try, WriteOptions.lddur;      catch, WriteOptions.lddur=[]; end
 try, WriteOptions.ldnsamples; catch, WriteOptions.ldnsamples=[]; end
 try, WriteOptions.scale;      catch, WriteOptions.scale='on'; end
 try, WriteOptions.dataformat;  catch, WriteOptions.dataformat='int16'; end
+if isfield(cntdataset, 'dataformat') && ~isempty(cntdataset.dataformat), WriteOptions.dataformat=cntdataset.dataformat; end
 
 sizeEvent1 = 8  ; %%% 8  bytes for Event1  
 sizeEvent2 = 19 ; %%% 19 bytes for Event2 
@@ -338,7 +348,7 @@ end;
 if isempty(WriteOptions.ldnsamples)
      if ~isempty(WriteOptions.lddur)
           WriteOptions.ldnsamples = round(WriteOptions.lddur*h.rate); 
-     else WriteOptions.ldnsamples = nums; 
+     else WriteOptions.ldnsamples = nums;
      end;
 end;
 
@@ -439,6 +449,17 @@ if type == 'cnt'
       end     
 end 
 
+%% WE ARE AT h.nextfile position here
+%   So there has to be additional information at the end of the CNT file
+%   that is NOT read in by loadcnt.m but we ultimately need in order to
+%   rewrite the file. 
+%
+%   Ah, there IS more information that loadcnt is not actually reading,
+%   although it depends on some of it to determine if the data are 16 or 32
+%   bit. 
+%
+%   CWB put this information in a junk field (cntdataset.junk) that can be
+%   written if it's present. 
 if size(endtag,1)>1
     fwrite(fid,endtag);
 else

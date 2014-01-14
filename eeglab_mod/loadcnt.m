@@ -485,7 +485,8 @@ if type == 'cnt'
 %                 else
 %                     dat=single(dat(:,1:r.ldnsamples));
 %                 end;
-          else              
+          else           
+              warning('CWB has not tested this section of code, so use with caution'); 
               h.channeloffset = h.channeloffset/2;
               % reading data in blocks
               dat = zeros( h.nchannels, r.ldnsamples, 'single');
@@ -592,7 +593,19 @@ if type == 'cnt'
           ev2 = [];
       end     
 
-      
+%% AT h.nextfile here.
+%   There's additional information at the end of this that needs to be
+%   written to file using writecnt in order to figure out what the
+%   precision is (32 or 16 bit) when reading in the file again.
+f.junk=fread(fid);
+f.junk=f.junk(1:end-1); % exclude the tag
+
+%% SAVE DATAFORMAT
+%   Potentially useful when writing data later, otherwise things have to be
+%   hardcoded.
+f.dataformat=r.dataformat;
+
+%% GET ENDTAG
 fseek(fid, -1, 'eof');
 t = fread(fid,'char');
 
