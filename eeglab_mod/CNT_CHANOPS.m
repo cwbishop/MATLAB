@@ -1,4 +1,4 @@
-function CNT_CHANOPS(IN, OUT, CHANOPS, OCHLAB, BLOCKSIZE)
+function CNT_CHANOPS(IN, OUT, CHANOPS, OCHLAB, BLOCKSIZE, DATAFORMAT)
 %% DESCRIPTION:
 %
 %   Function to perform channel operations (e.g., referencing) of Neuroscan
@@ -34,6 +34,8 @@ function CNT_CHANOPS(IN, OUT, CHANOPS, OCHLAB, BLOCKSIZE)
 %   BLOCKSIZE:  integer, number of seconds of continuous data to read in
 %               simultaneously (default=1); To load the whole dataset
 %               (useful for testing on small data sets) set to -1.
+%   DATAFORMAT: 'int16' | 'int32'; If empty, the native precision of the
+%               input file is used.
 %
 % OUTPUT:
 %
@@ -45,6 +47,7 @@ function CNT_CHANOPS(IN, OUT, CHANOPS, OCHLAB, BLOCKSIZE)
 
 %% INPUT CHECK
 if ~exist('BLOCKSIZE', 'var') || isempty(BLOCKSIZE), BLOCKSIZE=1; end 
+if ~exist('DATAFORMAT', 'var'), DATAFORMAT=[]; end % use default data format
 
 %% GET EVENT TABLE
 %   use same call used to read data segment below
@@ -54,11 +57,8 @@ else
     ostruct=CNT_READ(IN, [0 1]); 
 end % if 
 
-
-
 %% INITIATE NECESSARY VARIABLES
 CHLAB=cell(length(ostruct.electloc),1); % CHannel LABels
-
 
 % Number of total samples in the CNT file
 nsamps=ostruct.header.numsamples;   % total number of recorded samples
@@ -83,13 +83,15 @@ for i=1:ceil(nsamps./(BLOCKSIZE*srate))
     data=tstruct.data; 
     
     %% PERFORM CHANNEL OPERATION
+    %   Preallocate odata size for speed. 
+    odata=nan(length(CHANOPS), size(data,2)); 
     for c=1:length(CHANOPS)
         odata(c,:)=EVAL_CHANOPS(data, CHLAB, CHANOPS{c}); 
     end % c=1:length(CHANOPS)
     
     %% REARRANGE CNT DATASET INFORMATION FOR WRITING
     %   call EDIT_CNTSTRUCT
-    OSTRUCT=EDIT_CNTSTRUCT(tstruct, OCHLAB, odata); 
+    OSTRUCT=EDIT_CNTSTRUCT(tstruct, OCHLAB, odata, DATAFORMAT); 
     
     %% WRITE DATA SEGMENT
     %   Edit writecnt to allow appending of data, writing just the event
@@ -111,30 +113,48 @@ if length(T)==1, T=[T T]; end % need 2 elements
 CNT=loadcnt(IN, 't1', T(1), 'lddur', diff(T)); 
 end % CNT_READ
 
-function OCNT=EDIT_CNTSTRUCT(CNT, OCHLAB, DATA) 
+function OCNT=EDIT_CNTSTRUCT(CNT, OCHLAB, DATA, DATAFORMAT) 
 %% DESCRIPTION:
 %
 %   Function to change CNT structure so it plays nicely with writecnt.m.
+%   Currently, the function will essentially overwrite or edit existing
+%   channels, so electrode locations and other metadata should be largely
+%   ignored. This editing is designed mainly to get the datapoints in and
+%   out of a CNT file format quickly. 
 %
 % INPUT:
 %
+%   CNT:    CNT data structure, as returned from loadcnt.m and used by
+%           writecnt.m. See those functions for details.
+%   OCHLAB: cell array, each element is a string defining the name of the
+%           output channel
+%   DATA:   CxT matrix, where C is length(OCHLAB) and T is the number of
+%           time points.
+%   DATAFORMAT: 'int16' | 'int32'. Default = CNT.dataformat. 
 %
 % OUTPUT:
 %
-%   
+%   OCNT:   Edited CNT data structure for the output channels and data.
+%           This structure can be passed to writecnt.m and the data written
+%           to file.
 %
 % Christopher W. Bishop
 %   University of Washington 
 %   1/14
 
+%% DEFAULT DATA PRECISION
+if ~exist('DATAFORMAT', 'var') || isempty(DATAFORMAT), DATAFORMAT=CNT.dataformat; end 
+
 %% COPY OVER ALL CNT INFO
 OCNT=CNT; 
+
+%% ESTABLISH DATA FORMAT
+OCNT.dataformat=DATAFORMAT; 
 
 %% PUT IN DATA
 OCNT.data=DATA;
 
 %% LABEL INFORMATION
-
 % Rename channel labels
 for c=1:size(DATA,1)
     OCNT.electloc(c).lab=OCHLAB{c};
@@ -144,15 +164,21 @@ end % c=1:size(DATA,1)
 % Discard channels we won't use
 OCNT.electloc=OCNT.electloc(1:size(DATA,1)); 
 
-%% MODIFY HEADER
-
 %% FIELDS THAT NEED CHANGING
 %   electrode information is 75 bytes each. Confirmed in loadcnt.m
 %
 % CWB: need to add functionality for 16 bit CNTs (2 bytes instead of 4)
-OCNT.header.nextfile=OCNT.header.nextfile - (numel(CNT.data) - numel(OCNT.data)).*4 - (length(CNT.electloc) - length(OCNT.electloc)).*75; % subtract data size AND electrode information
-OCNT.header.nchannels=size(DATA,1);  % definitely needs to change
-OCNT.header.eventtablepos=OCNT.header.eventtablepos - (numel(CNT.data) - numel(OCNT.data)).*4 - (length(CNT.electloc) - length(OCNT.electloc)).*75; % subtract data size AND electrode information
+if strcmp(OCNT.dataformat, 'int32')
+    bytes=4;
+elseif strcmp(OCNT.dataformat, 'int16')    
+    bytes=2;
+else
+    error('CNT_CHANOPS:UnknownDataPrecision', 'Could not determine data precision'); 
+end % strcmp(OCNT.dataformat ...
+
+OCNT.header.nextfile=OCNT.header.nextfile - (numel(CNT.data) - numel(OCNT.data)).*bytes - (length(CNT.electloc) - length(OCNT.electloc)).*75; % subtract data size AND electrode information
+OCNT.header.nchannels=size(DATA,1);
+OCNT.header.eventtablepos=OCNT.header.eventtablepos - (numel(CNT.data) - numel(OCNT.data)).*bytes - (length(CNT.electloc) - length(OCNT.electloc)).*75; % subtract data size AND electrode information
 end % EDIT_CNTHEADER
 
 function [ODATA]=EVAL_CHANOPS(DATA, CHLAB, OP)
@@ -160,9 +186,7 @@ function [ODATA]=EVAL_CHANOPS(DATA, CHLAB, OP)
 %
 %   Function to interpret and evaluate specified channel operation strings.
 %   Notice that these data are first converted from their BDF format to a
-%   microVolt signal according similar to BIOSIG.  The mathematical
-%   operations are then performed on these transformed data and the data
-%   are then transferred BACK into BDF format.  
+%   microVolt signal according similar to BIOSIG.  
 %
 % INPUT:
 %
@@ -173,10 +197,14 @@ function [ODATA]=EVAL_CHANOPS(DATA, CHLAB, OP)
 %           associates the data in the first row of DATA with channel FP1.
 %           Care should be taken to properly label since improper labeling
 %           will lead to incorrect channel operations.
+%   OP:     string, description of the mathematical operation to perform
+%           (e.g., OP='(A1+A2)./2'; You'll notice that the channel labels
+%           are used as variables here. 
 %
 % OUTPUT:
 %
-%   ODATA:  Transformed BDF data.
+%   ODATA:  data output. Note that data matrix size will be CxT, where C is 
+%           length of CHLAB. 
 %
 % Christopher W Bishop
 %   University of Washington
@@ -191,6 +219,6 @@ for c=1:length(CHLAB)
 end % c=1:length(HDR.CHLAB)
 
 % Evaluate channel operation
-eval('ODATA=eval(OP);'); 
+ODATA=eval([OP ';']); 
 
 end % EVAL_CHANOPS

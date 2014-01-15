@@ -311,15 +311,37 @@ end
 % ----------------------------------
 begdata = ftell(fid);
 if strcmpi(r.dataformat, 'auto')
-    r.dataformat = 'int16';
-    if (h.nextfile > 0)
-        fseek(fid,h.nextfile+52,'bof');
-        is32bit = fread(fid,1,'char');       
-        if (is32bit == 1)
-            r.dataformat = 'int32';
-        end;
-        fseek(fid,begdata,'bof');
-    end;
+
+    % Chris Bishop 14/01/15
+    %   Auto detection relies on a single byte of data that is not written
+    %   with writecnt.m. Consequently, a CNT file read in using loadcnt and
+    %   written using writecnt cannot automatically detect data precision.
+    %   However, we can use other, more robust information to achieve this.
+    
+    % DataPointsPerChannel
+    dppc=(h.eventtablepos-begdata)./h.nchannels;
+    
+    % If two bytes (16 bit) or 4 bytes (32 bit). If we can't tell, throw an
+    % error. 
+    if dppc/2==h.numsamples
+        r.dataformat='int16';
+    elseif dppc/4==h.numsamples
+        r.dataformat='int32';
+    else
+        error('loadcnt:AutoDetectionFailure', 'loadcnt failed to automatically detect data precision');
+    end % if dppc./2 ...
+    
+    % original code commented out by CWB
+%     r.dataformat = 'int16';
+%     if (h.nextfile > 0)
+%         fseek(fid,h.nextfile+52,'bof');
+%         is32bit = fread(fid,1,'char');       
+%         if (is32bit == 1)
+%             r.dataformat = 'int32';
+%         end;
+%         fseek(fid,begdata,'bof');
+%     end;
+%   % end original code
 end;
 enddata = h.eventtablepos;   % after data
 if strcmpi(r.dataformat, 'int16')
@@ -597,8 +619,11 @@ if type == 'cnt'
 %   There's additional information at the end of this that needs to be
 %   written to file using writecnt in order to figure out what the
 %   precision is (32 or 16 bit) when reading in the file again.
-f.junk=fread(fid);
-f.junk=f.junk(1:end-1); % exclude the tag
+%
+%   With modified auto precision detection above, this is no longer
+%   necessary. 
+% f.junk=fread(fid);
+% f.junk=f.junk(1:end-1); % exclude the tag
 
 %% SAVE DATAFORMAT
 %   Potentially useful when writing data later, otherwise things have to be
