@@ -76,7 +76,8 @@ for i=1:length(ostruct.electloc)
 end % i=1:length(ostruct.electloc)
 
 %% LOOP THROUGH DATA
-for i=1:ceil(nsamps./(BLOCKSIZE*srate))
+nblocks=ceil(nsamps./(BLOCKSIZE*srate));
+for i=1:nblocks
     
     %% READ DATA SEGMENT
     tstruct=CNT_READ(IN, [(i-1)*BLOCKSIZE i*BLOCKSIZE]); 
@@ -91,16 +92,129 @@ for i=1:ceil(nsamps./(BLOCKSIZE*srate))
     
     %% REARRANGE CNT DATASET INFORMATION FOR WRITING
     %   call EDIT_CNTSTRUCT
-    OSTRUCT=EDIT_CNTSTRUCT(tstruct, OCHLAB, odata, DATAFORMAT); 
+   
     
-    %% WRITE DATA SEGMENT
-    %   Edit writecnt to allow appending of data, writing just the event
-    %   table, and writing everything at once. This will be a bear, but
-    %   made easier by the fact that we have something to start with. 
-    writecnt(OUT, OSTRUCT, 'dataformat', OSTRUCT.dataformat);
+    %% WRITE INFORMATION TO FILE    
+    if i==1
+        % Write header, electrode, data segment
+        %   Double check that header information reflects all data that
+        %   will eventually be written to file, not just this segment.
+        %
+        %   OSTRCUT varies depending on what the user is writing - the
+        %   header must reflect the final file size (samples, channels,
+        %   etc.), but an individual data segment must reflect the
+        %   information needed to write a short segment of data. Thus, the
+        %   clunky, sequential calls.
+        
+        % Write Header        
+        WRITE_HEADER(OUT, tstruct, OCHLAB, odata, DATAFORMAT);
+        
+        % Write data segment
+        WRITE_DATASEG(OUT, tstruct, OCHLAB, odata, DATAFORMAT); 
+    end % write header
     
-end % for i=1:ceil(nsamps./ ...)
+    % Always write the data segment
+    WRITE_DATASEG(OUT, tstruct, OCHLAB, odata, DATAFORMAT); 
+    
+    % Write event table and endtag
+    if i==nblocks
+        % Write event table and endtag
+        WRITE_EVENTTAG(OUT, tstruct, OCHLAB, odata, DATAFORMAT); 
+    end % if i==1           
+        
+end % for i=1:nblocks
 end % CNT_CHANOPS
+
+function WRITE_HEADER(OUT, CNT, OCHLAB, DATA, DATAFORMAT)
+%% DESCRIPTION:
+%
+%   Function to write header information to CNT file. Proved to be helpful
+%   to modularize this. I was copying and pasting code all over the place!
+%   A good sign I needed a separate function ;). 
+%
+% INPUT:
+%
+%   XXX
+%
+% OUTPUT:
+%
+%   XXX
+%
+% Christopher W. Bishop
+%   University of Washington
+%   1/14
+%   cwbishop@uw.edu
+
+%% GET AN APPROPRIATE CNT DATA STRUCTURE
+OSTRUCT=EDIT_CNTSTRUCT(CNT, OCHLAB, DATA, DATAFORMAT,'header'); 
+writecnt(OUT,OSTRUCT,'dataformat',OSTRUCT.dataformat,...
+            'header', true, ...
+            'electrodes', true, ...
+            'data', false, ...
+            'eventtable', false, ...
+            'endtag', false, ...
+            'append', false);
+
+end % WRITE_CNTHEADER
+
+function WRITE_DATASEG(OUT, CNT, OCHLAB, DATA, DATAFORMAT)
+%% DESCRIPTION:
+%
+%
+%
+% INPUT:
+%
+%
+% OUTPUT:
+%
+%
+%
+% Christopher W. Bishop
+%   University of Washington
+%   1/14
+%   cwbishop@uw.edu
+
+OSTRUCT=EDIT_CNTSTRUCT(CNT, OCHLAB, DATA, DATAFORMAT,'data'); 
+
+writecnt(OUT,OSTRUCT,'dataformat',OSTRUCT.dataformat,...
+            'header', false, ...
+            'electrodes', false, ...
+            'data', true, ...
+            'eventtable', false, ...
+            'endtag', false, ...
+            'append', true);
+        
+end % function WRITE_DATASEG
+
+function WRITE_EVENTTAG(OUT, CNT, OCHLAB, DATA, DATAFORMAT)
+%% DESCRIPTION:
+%
+%   
+%
+% INPUT:
+%
+%
+% OUTPUT:
+%
+%
+%
+% Christopher W. Bishop
+%   University of Washington
+%   1/14
+%   cwbishop@uw.edu
+
+OSTRUCT=EDIT_CNTSTRUCT(CNT, OCHLAB, DATA, DATAFORMAT,'header');
+
+ % Write last data segment, eventtable, and endtag
+writecnt(OUT,OSTRUCT,'dataformat',OSTRUCT.dataformat,...
+    'header', false, ...
+    'electrodes', false, ...
+    'data', false, ...
+    'eventtable', true, ...
+    'endtag', true, ...
+    'append', true);
+
+end % WRITE_EVENTTAG
 
 function CNT=CNT_READ(IN, T)
 %% DESCRIPTION:
@@ -113,7 +227,7 @@ if length(T)==1, T=[T T]; end % need 2 elements
 CNT=loadcnt(IN, 't1', T(1), 'lddur', diff(T)); 
 end % CNT_READ
 
-function OCNT=EDIT_CNTSTRUCT(CNT, OCHLAB, DATA, DATAFORMAT) 
+function OCNT=EDIT_CNTSTRUCT(CNT, OCHLAB, DATA, DATAFORMAT, WTYPE) 
 %% DESCRIPTION:
 %
 %   Function to change CNT structure so it plays nicely with writecnt.m.
@@ -144,6 +258,7 @@ function OCNT=EDIT_CNTSTRUCT(CNT, OCHLAB, DATA, DATAFORMAT)
 
 %% DEFAULT DATA PRECISION
 if ~exist('DATAFORMAT', 'var') || isempty(DATAFORMAT), DATAFORMAT=CNT.dataformat; end 
+if ~exist('WTYPE', 'var'), WTYPE=[]; end % 
 
 %% COPY OVER ALL CNT INFO
 OCNT=CNT; 
@@ -176,9 +291,24 @@ else
     error('CNT_CHANOPS:UnknownDataPrecision', 'Could not determine data precision'); 
 end % strcmp(OCNT.dataformat ...
 
-OCNT.header.nextfile=OCNT.header.nextfile - (numel(CNT.data) - numel(OCNT.data)).*bytes - (length(CNT.electloc) - length(OCNT.electloc)).*75; % subtract data size AND electrode information
-OCNT.header.nchannels=size(DATA,1);
-OCNT.header.eventtablepos=OCNT.header.eventtablepos - (numel(CNT.data) - numel(OCNT.data)).*bytes - (length(CNT.electloc) - length(OCNT.electloc)).*75; % subtract data size AND electrode information
+% Number of bytes removed from data
+if strcmpi(WTYPE,'header') || strcmpi(WTYPE,'data')
+    rmbytes=(CNT.header.numsamples*CNT.header.nchannels - CNT.header.numsamples*length(OCHLAB)).*bytes - (length(CNT.electloc) - length(OCNT.electloc)).*75;
+elseif strcmpi(WTYPE,'data')
+    rmbytes=(numel(CNT.data) - numel(OCNT.data)).*bytes - (length(CNT.electloc) - length(OCNT.electloc)).*75; % subtract data size AND electrode information
+else
+    error('Data type not specified'); 
+end % if strcmp
+
+% Adjust several header parameters to reflect truncated data (removed
+% channels).
+OCNT.header.nextfile=OCNT.header.nextfile - rmbytes;
+OCNT.header.eventtablepos=OCNT.header.eventtablepos - rmbytes;
+OCNT.header.nchannels=length(OCHLAB);
+
+% Previous header adjustments tested with full files read in
+% OCNT.header.nextfile=OCNT.header.nextfile - (numel(CNT.data) - numel(OCNT.data)).*bytes - (length(CNT.electloc) - length(OCNT.electloc)).*75; % subtract data size AND electrode information
+% OCNT.header.eventtablepos=OCNT.header.eventtablepos - (numel(CNT.data) - numel(OCNT.data)).*bytes - (length(CNT.electloc) - length(OCNT.electloc)).*75; % subtract data size AND electrode information
 end % EDIT_CNTHEADER
 
 function [ODATA]=EVAL_CHANOPS(DATA, CHLAB, OP)

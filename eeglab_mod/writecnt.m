@@ -352,6 +352,13 @@ if WriteOptions.electrodes
     end % for 
 end % if WriteOptions.electrodes
 
+%% SET FILE POINTER TO END OF HEADER INFORMATION
+%   Need to advance the pointer in the event that the header and/or
+%   electrodes have not been written (or have already been written to
+%   file) since the file pointer position is used to determine the
+%   beginning of the data. 
+% fseek(fid, 0, 'eof'); % advance to just after header/electrodes
+
 % finding if 32-bits of 16-bits file
 % ----------------------------------
 begdata = ftell(fid);
