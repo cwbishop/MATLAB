@@ -65,6 +65,7 @@ nsamps=ostruct.header.numsamples;   % total number of recorded samples
 srate=ostruct.header.rate;         % rate of recording
 
 %% DOUBLE CHECK BLOCK SIZE
+%   if the block size is set to -1, then load in the whole file. 
 if BLOCKSIZE==-1
     BLOCKSIZE=ceil(nsamps./(srate));
 end % if BLOCKSIZE==-1
@@ -107,10 +108,8 @@ for i=1:nblocks
         %   clunky, sequential calls.
         
         % Write Header        
-        WRITE_HEADER(OUT, tstruct, OCHLAB, odata, DATAFORMAT);
+        WRITE_HEADER(OUT, tstruct, OCHLAB, odata, DATAFORMAT);      
         
-        % Write data segment
-        WRITE_DATASEG(OUT, tstruct, OCHLAB, odata, DATAFORMAT); 
     end % write header
     
     % Always write the data segment
@@ -292,10 +291,10 @@ else
 end % strcmp(OCNT.dataformat ...
 
 % Number of bytes removed from data
-if strcmpi(WTYPE,'header') || strcmpi(WTYPE,'data')
-    rmbytes=(CNT.header.numsamples*CNT.header.nchannels - CNT.header.numsamples*length(OCHLAB)).*bytes - (length(CNT.electloc) - length(OCNT.electloc)).*75;
+if strcmpi(WTYPE,'header')
+    rmbytes=(CNT.header.numsamples*CNT.header.nchannels - CNT.header.numsamples*length(OCHLAB)).*bytes + (length(CNT.electloc) - length(OCNT.electloc)).*75;
 elseif strcmpi(WTYPE,'data')
-    rmbytes=(numel(CNT.data) - numel(OCNT.data)).*bytes - (length(CNT.electloc) - length(OCNT.electloc)).*75; % subtract data size AND electrode information
+    rmbytes=(numel(CNT.data) - numel(OCNT.data)).*bytes + (length(CNT.electloc) - length(OCNT.electloc)).*75; % subtract data size AND electrode information
 else
     error('Data type not specified'); 
 end % if strcmp
