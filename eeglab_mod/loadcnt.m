@@ -85,7 +85,7 @@ if nargin ==1
 end     
 
 fid = fopen(filename,'r', 'l');
-disp(['Loading file ' filename ' ...'])
+% disp(['Loading file ' filename ' ...'])
 
 h.rev               = fread(fid,12,'char');
 h.nextfile          = fread(fid,1,'long');
@@ -390,7 +390,7 @@ if h.channeloffset > 1
             h.channeloffset);
 end;
 
-disp('Reading data .....')
+% disp('Reading data .....')
 if type == 'cnt' 
   
       % while (ftell(fid) +1 < h.eventtablepos)
@@ -524,7 +524,7 @@ if type == 'cnt'
           
           % ftell(fid)
           if strcmpi(r.scale, 'on')
-            disp('Scaling data .....')
+%             disp('Scaling data .....')
             %%% scaling to microvolts
             for i=1:h.nchannels
                 bas=e(i).baseline;sen=e(i).senstivity;cal=e(i).calib;
@@ -537,7 +537,7 @@ if type == 'cnt'
       ET_offset = (double(h.prevfile) * (2^32)) + double(h.eventtablepos);    % prevfile contains high order bits of event table offset, eventtablepos contains the low order bits
       fseek(fid, ET_offset, 'bof'); 
 
-      disp('Reading Event Table...')
+%       disp('Reading Event Table...')
       eT.teeg   = fread(fid,1,'uchar');
       eT.size   = fread(fid,1,'ulong');
       eT.offset = fread(fid,1,'ulong');

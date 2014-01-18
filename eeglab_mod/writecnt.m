@@ -119,7 +119,7 @@ else
 end % if WriteOptions.append
 
 
-disp(['Writing file ' filename ' ...'])
+% disp(['Writing file ' filename ' ...'])
 
 % HEADER : 900 bytes => Starts at 0h, finishes with 383h.
 if WriteOptions.header
@@ -357,8 +357,10 @@ end % if WriteOptions.electrodes
 %   electrodes have not been written (or have already been written to
 %   file) since the file pointer position is used to determine the
 %   beginning of the data. 
-% fseek(fid, 0, 'eof'); % advance to just after header/electrodes
-
+%
+%   This is a bit clunky, but ensures that 'append' mode works properly
+%   when calculated the number of data points to write.
+fseek(fid, 900+75*h.nchannels, 'bof'); 
 % finding if 32-bits of 16-bits file
 % ----------------------------------
 begdata = ftell(fid);
@@ -389,7 +391,7 @@ end;
 % scaling data from microvolts
 % ----------------------------
 if strcmpi(WriteOptions.scale, 'on')
-    disp('Scaling data .....')
+%     disp('Scaling data .....')
     for i=1:h.nchannels
        bas=e(i).baseline;
        sen=e(i).senstivity;
@@ -403,7 +405,7 @@ end
 % write data
 % ----------
 
-disp('Writing data .....')
+% disp('Writing data .....')
 if type == 'cnt' 
     
     if WriteOptions.data
@@ -509,4 +511,4 @@ if WriteOptions.endtag
 end % if WriteOptions.endtag
 
 fclose(fid);
-disp(['Finished writing file ' filename ' ...'])
+% disp(['Finished writing file ' filename ' ...'])

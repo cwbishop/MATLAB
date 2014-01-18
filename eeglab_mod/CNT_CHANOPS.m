@@ -41,6 +41,16 @@ function CNT_CHANOPS(IN, OUT, CHANOPS, OCHLAB, BLOCKSIZE, DATAFORMAT)
 %
 %   nothing useful that I can think of ...
 %
+%       Successful runs :
+%       IN=fullfile('C:\Users\cwbishop\Downloads', 'projq_G4_257_6day4.cnt'); OUT=fullfile('C:\Users\cwbishop\Downloads', 'TEST.cnt');CHANOPS={'FP1'}; OCHLAB={'FP1'}; BLOCKSIZE=-1;
+%       IN=fullfile('C:\Users\cwbishop\Downloads', 'projq_G4_257_6day4.cnt'); OUT=fullfile('C:\Users\cwbishop\Downloads', 'TEST.cnt');CHANOPS={'FP1'}; OCHLAB={'FP1'}; BLOCKSIZE=878120./2./1000;
+%
+%       Unsuccessful runs :
+%       % 140118 1 PM PST CWB
+%       IN=fullfile('C:\Users\cwbishop\Downloads', 'projq_G4_257_6day4.cnt'); OUT=fullfile('C:\Users\cwbishop\Downloads', 'TEST.cnt');CHANOPS={'FP1'}; OCHLAB={'FP1'}; BLOCKSIZE=1;
+%       
+%
+% Tested with the following inputs:
 % Christopher W. Bishop
 %   1/14
 %   University of Washington
@@ -79,7 +89,7 @@ end % i=1:length(ostruct.electloc)
 %% LOOP THROUGH DATA
 nblocks=ceil(nsamps./(BLOCKSIZE*srate));
 for i=1:nblocks
-    
+    disp(['Writing block: ' num2str(i) '/' num2str(nblocks)]); 
     %% READ DATA SEGMENT
     tstruct=CNT_READ(IN, [(i-1)*BLOCKSIZE i*BLOCKSIZE]); 
     data=tstruct.data; 
@@ -118,7 +128,9 @@ for i=1:nblocks
     % Write event table and endtag
     if i==nblocks
         % Write event table and endtag
-        WRITE_EVENTTAG(OUT, tstruct, OCHLAB, odata, DATAFORMAT); 
+        %   Use ostruct because we want event table onsets to load
+        %   correctly. 
+        WRITE_EVENTTAG(OUT, ostruct, OCHLAB, odata, DATAFORMAT); 
     end % if i==1           
         
 end % for i=1:nblocks
@@ -294,7 +306,10 @@ end % strcmp(OCNT.dataformat ...
 if strcmpi(WTYPE,'header')
     rmbytes=(CNT.header.numsamples*CNT.header.nchannels - CNT.header.numsamples*length(OCHLAB)).*bytes + (length(CNT.electloc) - length(OCNT.electloc)).*75;
 elseif strcmpi(WTYPE,'data')
-    rmbytes=(numel(CNT.data) - numel(OCNT.data)).*bytes + (length(CNT.electloc) - length(OCNT.electloc)).*75; % subtract data size AND electrode information
+    % Subtract data written in other channels, remove electrode headers,
+    % remove all but the number of samples to write
+    rmbytes=(CNT.header.numsamples*CNT.header.nchannels - numel(OCNT.data)).*bytes + (length(CNT.electloc) - length(OCNT.electloc)).*75;
+%     rmbytes=(numel(CNT.data) - numel(OCNT.data)).*bytes + (length(CNT.electloc) - length(OCNT.electloc)).*75; % subtract data size AND electrode information
 else
     error('Data type not specified'); 
 end % if strcmp
