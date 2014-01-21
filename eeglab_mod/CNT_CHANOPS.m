@@ -43,6 +43,8 @@ function CNT_CHANOPS(IN, OUT, CHANOPS, OCHLAB, BLOCKSIZE, DATAFORMAT)
 %
 %       Successful runs :
 %       IN=fullfile('C:\Users\cwbishop\Downloads', 'projq_G4_257_6day4.cnt'); OUT=fullfile('C:\Users\cwbishop\Downloads', 'TEST.cnt');CHANOPS={'FP1'}; OCHLAB={'FP1'}; BLOCKSIZE=878120./50./1000;
+%       IN=fullfile('C:\Users\cwbishop\Downloads', 'projq_G4_257_6day4.cnt'); OUT=fullfile('C:\Users\cwbishop\Downloads', 'TEST.cnt');CHANOPS={'FP1'}; OCHLAB={'FP1'}; BLOCKSIZE=-1;
+%       IN=fullfile('C:\Users\cwbishop\Downloads', 'projq_G4_257_6day4.cnt'); OUT=fullfile('C:\Users\cwbishop\Downloads', 'TEST.cnt');CHANOPS={'FP1'}; OCHLAB={'FP1'}; BLOCKSIZE=1;
 %       
 %
 % Tested with the following inputs:
@@ -92,13 +94,10 @@ for i=1:nblocks
     %% READ DATA SEGMENT
     if i==1
         ind = [(i-1)*BLOCKSIZE i*BLOCKSIZE-1];
-%         tstruct=CNT_READ(IN, [(i-1)*BLOCKSIZE i*BLOCKSIZE]); 
     elseif i==nblocks
         ind = [(i-1)*BLOCKSIZE nsamps-1];
-%         tstruct=CNT_READ(IN, [(i-1)*BLOCKSIZE nsamps]); 
     else
         ind = [(i-1)*BLOCKSIZE i*BLOCKSIZE-1];
-%         tstruct=CNT_READ(IN, [(i-1)*BLOCKSIZE+1 i*BLOCKSIZE]); 
     end %
     IND=[IND; ind]; % for debugging purposes. 
     tstruct=CNT_READ(IN, ind); 
@@ -112,8 +111,7 @@ for i=1:nblocks
     end % c=1:length(CHANOPS)
     
     %% REARRANGE CNT DATASET INFORMATION FOR WRITING
-    %   call EDIT_CNTSTRUCT
-   
+    %   call EDIT_CNTSTRUCT   
     
     %% WRITE INFORMATION TO FILE    
     if i==1
@@ -155,11 +153,18 @@ function WRITE_HEADER(OUT, CNT, OCHLAB, DATA, DATAFORMAT)
 %
 % INPUT:
 %
-%   XXX
+%   OUT:    string, full path to output file.
+%   CNT:    CNT dataset structure, returned from loadcnt.m.
+%   OCHLAB: cell array, output channel names
+%   DATA:   CxT matrix, where C is the number of channels and T the number
+%           of samples per channel.
+%   DATAFORMAT: string ('header' | 'data') used for massaging the header
+%           information into something useful for writecnt.m. Use 'header'
+%           here.
 %
 % OUTPUT:
 %
-%   XXX
+%   Header written to file.   
 %
 % Christopher W. Bishop
 %   University of Washington
@@ -181,14 +186,16 @@ end % WRITE_CNTHEADER
 function WRITE_DATASEG(OUT, CNT, OCHLAB, DATA, DATAFORMAT)
 %% DESCRIPTION:
 %
-%
+%   Function to write a segment of data to CNT file. Data are appended to a
+%   file that is assumed to exist. 
 %
 % INPUT:
 %
+%   See WRITE_HEADER. Set DATAFORMAT='data';
 %
 % OUTPUT:
 %
-%
+%   Data segment written to file
 %
 % Christopher W. Bishop
 %   University of Washington
@@ -210,14 +217,16 @@ end % function WRITE_DATASEG
 function WRITE_EVENTTAG(OUT, CNT, OCHLAB, DATA, DATAFORMAT)
 %% DESCRIPTION:
 %
-%   
+%   Write event table and event tag to file. This information is appended
+%   to a file assumed to exist already.
 %
 % INPUT:
 %
+%   See WRITE_HEADER. Use DATAFORMAT='header' here.
 %
 % OUTPUT:
 %
-%
+%   Event Table and End Tag written to file.
 %
 % Christopher W. Bishop
 %   University of Washington
@@ -240,7 +249,20 @@ end % WRITE_EVENTTAG
 function CNT=CNT_READ(IN, T)
 %% DESCRIPTION:
 %
-%   Function to read a given CNT data segment (defined by time inputs). 
+%   Function to read a given CNT data segment (defined by samples). 
+%
+% INPUT:
+%
+%   IN: string, full path to input file.
+%   T:  2 element array, beginning and end samples to load. 
+%
+% OUTPUT:
+%
+%   CNT:    CNT dataset returned from loadcnt.
+%
+% Christopher W. Bishop
+%   University of Washington
+%   1/14
 
 %% INPUT CHECK
 if length(T)==1, T=[T T]; end % need 2 elements
