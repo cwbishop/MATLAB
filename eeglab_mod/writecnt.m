@@ -112,7 +112,7 @@ end
 %% APPEND DATA?
 %   If not, then open data for general writing
 if WriteOptions.append
-    fid=fopen(filename,'a');
+    fid=fopen(filename,'a+');
     display('Appending requested information ...');
 else
     fid = fopen(filename,'w');

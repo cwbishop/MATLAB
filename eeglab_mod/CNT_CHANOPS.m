@@ -42,12 +42,7 @@ function CNT_CHANOPS(IN, OUT, CHANOPS, OCHLAB, BLOCKSIZE, DATAFORMAT)
 %   nothing useful that I can think of ...
 %
 %       Successful runs :
-%       IN=fullfile('C:\Users\cwbishop\Downloads', 'projq_G4_257_6day4.cnt'); OUT=fullfile('C:\Users\cwbishop\Downloads', 'TEST.cnt');CHANOPS={'FP1'}; OCHLAB={'FP1'}; BLOCKSIZE=-1;
-%       IN=fullfile('C:\Users\cwbishop\Downloads', 'projq_G4_257_6day4.cnt'); OUT=fullfile('C:\Users\cwbishop\Downloads', 'TEST.cnt');CHANOPS={'FP1'}; OCHLAB={'FP1'}; BLOCKSIZE=878120./2./1000;
-%
-%       Unsuccessful runs :
-%       % 140118 1 PM PST CWB
-%       IN=fullfile('C:\Users\cwbishop\Downloads', 'projq_G4_257_6day4.cnt'); OUT=fullfile('C:\Users\cwbishop\Downloads', 'TEST.cnt');CHANOPS={'FP1'}; OCHLAB={'FP1'}; BLOCKSIZE=1;
+%       IN=fullfile('C:\Users\cwbishop\Downloads', 'projq_G4_257_6day4.cnt'); OUT=fullfile('C:\Users\cwbishop\Downloads', 'TEST.cnt');CHANOPS={'FP1'}; OCHLAB={'FP1'}; BLOCKSIZE=878120./50./1000;
 %       
 %
 % Tested with the following inputs:
@@ -87,11 +82,26 @@ for i=1:length(ostruct.electloc)
 end % i=1:length(ostruct.electloc)
 
 %% LOOP THROUGH DATA
-nblocks=ceil(nsamps./(BLOCKSIZE*srate));
+BLOCKSIZE=round(BLOCKSIZE*srate); % convert to samples
+nblocks=ceil(nsamps./(BLOCKSIZE));
+
+% IND
+IND=[];
 for i=1:nblocks
     disp(['Writing block: ' num2str(i) '/' num2str(nblocks)]); 
     %% READ DATA SEGMENT
-    tstruct=CNT_READ(IN, [(i-1)*BLOCKSIZE i*BLOCKSIZE]); 
+    if i==1
+        ind = [(i-1)*BLOCKSIZE i*BLOCKSIZE-1];
+%         tstruct=CNT_READ(IN, [(i-1)*BLOCKSIZE i*BLOCKSIZE]); 
+    elseif i==nblocks
+        ind = [(i-1)*BLOCKSIZE nsamps-1];
+%         tstruct=CNT_READ(IN, [(i-1)*BLOCKSIZE nsamps]); 
+    else
+        ind = [(i-1)*BLOCKSIZE i*BLOCKSIZE-1];
+%         tstruct=CNT_READ(IN, [(i-1)*BLOCKSIZE+1 i*BLOCKSIZE]); 
+    end %
+    IND=[IND; ind]; % for debugging purposes. 
+    tstruct=CNT_READ(IN, ind); 
     data=tstruct.data; 
     
     %% PERFORM CHANNEL OPERATION
@@ -131,7 +141,7 @@ for i=1:nblocks
         %   Use ostruct because we want event table onsets to load
         %   correctly. 
         WRITE_EVENTTAG(OUT, ostruct, OCHLAB, odata, DATAFORMAT); 
-    end % if i==1           
+    end % if i==nblocks           
         
 end % for i=1:nblocks
 end % CNT_CHANOPS
@@ -235,7 +245,7 @@ function CNT=CNT_READ(IN, T)
 %% INPUT CHECK
 if length(T)==1, T=[T T]; end % need 2 elements
 
-CNT=loadcnt(IN, 't1', T(1), 'lddur', diff(T)); 
+CNT=loadcnt(IN, 'sample1', T(1), 'ldnsamples', diff(T)+1); % add one for T(1);
 end % CNT_READ
 
 function OCNT=EDIT_CNTSTRUCT(CNT, OCHLAB, DATA, DATAFORMAT, WTYPE) 
