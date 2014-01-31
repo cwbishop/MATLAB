@@ -323,24 +323,24 @@ if strcmpi(r.dataformat, 'auto')
     
     % If two bytes (16 bit) or 4 bytes (32 bit). If we can't tell, throw an
     % error. 
-    if dppc/2==h.numsamples
-        r.dataformat='int16';
-    elseif dppc/4==h.numsamples
-        r.dataformat='int32';
-    else
-        error('loadcnt:AutoDetectionFailure', 'loadcnt failed to automatically detect data precision');
-    end % if dppc./2 ...
+%     if dppc/2==h.numsamples
+%         r.dataformat='int16';
+%     elseif dppc/4==h.numsamples
+%         r.dataformat='int32';
+%     else
+%         error('loadcnt:AutoDetectionFailure', 'loadcnt failed to automatically detect data precision');
+%     end % if dppc./2 ...
     
     % original code commented out by CWB
-%     r.dataformat = 'int16';
-%     if (h.nextfile > 0)
-%         fseek(fid,h.nextfile+52,'bof');
-%         is32bit = fread(fid,1,'char');       
-%         if (is32bit == 1)
-%             r.dataformat = 'int32';
-%         end;
-%         fseek(fid,begdata,'bof');
-%     end;
+    r.dataformat = 'int16';
+    if (h.nextfile > 0)
+        fseek(fid,h.nextfile+52,'bof');
+        is32bit = fread(fid,1,'char');       
+        if (is32bit == 1)
+            r.dataformat = 'int32';
+        end;
+        fseek(fid,begdata,'bof');
+    end;
 %   % end original code
 end;
 enddata = h.eventtablepos;   % after data

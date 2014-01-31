@@ -47,7 +47,6 @@ function CNT_CHANOPS(IN, OUT, CHANOPS, OCHLAB, BLOCKSIZE, DATAFORMAT)
 %       IN=fullfile('C:\Users\cwbishop\Downloads', 'projq_G4_257_6day4.cnt'); OUT=fullfile('C:\Users\cwbishop\Downloads', 'TEST.cnt');CHANOPS={'FP1'}; OCHLAB={'FP1'}; BLOCKSIZE=1;
 %       
 %
-% Tested with the following inputs:
 % Christopher W. Bishop
 %   1/14
 %   University of Washington
