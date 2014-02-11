@@ -86,10 +86,15 @@ end % i=1:length(ostruct.electloc)
 BLOCKSIZE=round(BLOCKSIZE*srate); % convert to samples
 nblocks=ceil(nsamps./(BLOCKSIZE));
 
+%% CREATE PROGRESS BAR
+h=waitbar(0, IN); 
 % IND
 IND=[];
 for i=1:nblocks
-    disp(['Writing block: ' num2str(i) '/' num2str(nblocks)]); 
+    
+    %% UPDATE PROGRESS BAR
+    waitbar(i/nblocks, h, IN);
+
     %% READ DATA SEGMENT
     if i==1
         ind = [(i-1)*BLOCKSIZE i*BLOCKSIZE-1];
@@ -108,9 +113,6 @@ for i=1:nblocks
     for c=1:length(CHANOPS)
         odata(c,:)=EVAL_CHANOPS(data, CHLAB, CHANOPS{c}); 
     end % c=1:length(CHANOPS)
-    
-    %% REARRANGE CNT DATASET INFORMATION FOR WRITING
-    %   call EDIT_CNTSTRUCT   
     
     %% WRITE INFORMATION TO FILE    
     if i==1
@@ -140,7 +142,11 @@ for i=1:nblocks
         WRITE_EVENTTAG(OUT, ostruct, OCHLAB, odata, DATAFORMAT); 
     end % if i==nblocks           
         
+  
 end % for i=1:nblocks
+
+%% CLOSE PROGRESS BAR
+close(h); 
 end % CNT_CHANOPS
 
 function WRITE_HEADER(OUT, CNT, OCHLAB, DATA, DATAFORMAT)
@@ -266,7 +272,15 @@ function CNT=CNT_READ(IN, T)
 %% INPUT CHECK
 if length(T)==1, T=[T T]; end % need 2 elements
 
+%% TURN OFF WARNINGS (temporarily)
+%   Warning messages from loadcnt are obnoxious. Suppress them.
+warning('off', 'all');
+
 CNT=loadcnt(IN, 'sample1', T(1), 'ldnsamples', diff(T)+1); % add one for T(1);
+
+%% TURN WARNINGS BACK ON
+warning('on', 'all');
+
 end % CNT_READ
 
 function OCNT=EDIT_CNTSTRUCT(CNT, OCHLAB, DATA, DATAFORMAT, WTYPE) 
