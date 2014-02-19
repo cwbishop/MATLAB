@@ -456,8 +456,18 @@ if type == 'cnt'
         if ~isempty(ev2)
             ev2p=ev2; 
             ioff=900+(h.nchannels*75); %% initial offset : header + electordes desc 
+            
+            % 140219 CWB: Writing events to file in byte form depends on
+            % data precision. Need to select the correct data precision
+            % here.
+            if strcmpi(WriteOptions.dataformat, 'int16')
+                NBYTES=2;
+            elseif strcmpi(WriteOptions.dataformat, 'int32')
+                NBYTES=4;
+            end % if strcmpi
+            
             for i=1:nevents 
-                ev2p(i).offset=((ev2p(i).offset + WriteOptions.sample1)*2*h.nchannels) +ioff; %% 2 short int end 
+                ev2p(i).offset=((ev2p(i).offset + WriteOptions.sample1)*NBYTES*h.nchannels) +ioff; %% 2 short int end 
             end     
             ev2 = ev2p;
         end; % if ~isempty(ev2)
