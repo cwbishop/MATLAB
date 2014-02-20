@@ -317,32 +317,51 @@ if strcmpi(r.dataformat, 'auto')
     %   with writecnt.m. Consequently, a CNT file read in using loadcnt and
     %   written using writecnt cannot automatically detect data precision.
     %   However, we can use other, more robust information to achieve this.
-    
-    % DataPointsPerChannel
-    dppc=(h.eventtablepos-begdata)./h.nchannels;
+    %
+    % 14/02/19 CWB: 
+    %   Actually, this information may not be reliable for some file types
+    %   (e.g., those supplied by Arno D. for testing purposes). A try catch
+    %   is probably the safest bet with an additional safeguard. 
     
     % If two bytes (16 bit) or 4 bytes (32 bit). If we can't tell, throw an
     % error. 
-%     if dppc/2==h.numsamples
-%         r.dataformat='int16';
-%     elseif dppc/4==h.numsamples
-%         r.dataformat='int32';
-%     else
-%         error('loadcnt:AutoDetectionFailure', 'loadcnt failed to automatically detect data precision');
-%     end % if dppc./2 ...
-    
-    % original code commented out by CWB
-    r.dataformat = 'int16';
-    if (h.nextfile > 0)
-        fseek(fid,h.nextfile+52,'bof');
-        is32bit = fread(fid,1,'char');       
-        if (is32bit == 1)
-            r.dataformat = 'int32';
-        end;
-        fseek(fid,begdata,'bof');
-    end;
-%   % end original code
-end;
+    try
+        % This approach relies on sensible headers. CWB has used this on
+        % many 32-bit datasets from SCAN 4.5, but earlier versions and
+        % testing 16-bit testing materials seem to have non-sensicle
+        % headers. So this won't work every time. 
+        
+        % DataPointsPerChannel
+        dppc=(h.eventtablepos-begdata)./h.nchannels;
+        
+        if dppc/2==h.numsamples
+            r.dataformat='int16';
+        elseif dppc/4==h.numsamples
+            r.dataformat='int32';
+        else
+            error('loadcnt:AutoDetectionFailure', 'loadcnt failed to automatically detect data precision');
+        end % if dppc./2 ...
+    catch
+        % original code commented out by CWB
+        r.dataformat = 'int16';
+        if (h.nextfile > 0)
+            
+            % Grab informative byte that tells us if this is 32 or 16 bit
+            % data. Note, however, that this is *not* available in files
+            % generated from writecnt.m. Thus, the try statement above is
+            % necessary. 
+            fseek(fid,h.nextfile+52,'bof');
+            is32bit = fread(fid,1,'char');       
+            
+            if (is32bit == 1)
+                r.dataformat = 'int32';
+            end;
+            
+            fseek(fid,begdata,'bof');       
+        end; % if (h.nextfile)>0
+    end % try/catch
+end; % if strcmpi ...
+
 enddata = h.eventtablepos;   % after data
 if strcmpi(r.dataformat, 'int16')
      nums    = floor((enddata-begdata)/h.nchannels/2); % floor due to bug 1254
@@ -416,7 +435,8 @@ if type == 'cnt'
           % samples.  This equates to 16MB and 32MB of memory for
           % 16 and 32 bit files, respectively.
           data_block = 4000000 ;
-          max_rows =  data_block / h.nchannels ;
+%           max_rows =  data_block / h.nchannels ;
+          floor(data_block / h.nchannels ); % bug 1539
 
           %warning off ;
           max_written = h.nchannels * uint32(max_rows) ;
