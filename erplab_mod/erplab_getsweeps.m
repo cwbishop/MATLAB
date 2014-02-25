@@ -59,7 +59,15 @@ binsum=zeros(size(EEG.data,1), size(EEG.data,2));
 IND=[];
 
 for i=1:length(EEG.epoch)
-    bini=EEG.epoch(i).eventbini{1}; % stored as cell, so make it double array
+    
+    % Apparently this information is not stored in a uniform data type. So
+    % we need to check and try each.
+    if isa(EEG.epoch(i).eventbini, 'cell')
+        bini=EEG.epoch(i).eventbini{1}; % stored as cell, so make it double array
+    elseif isa(EEG.epoch(i).eventbini, 'double')
+        bini=EEG.epoch(i).eventbini(1); % stored as cell, so make it double array
+    end % if iscell
+        
     bepoch=i;
     % Flag set to 1 if included, set to 0 if rejected.
     %   Recall that rejection information is stored based on EPOCH
