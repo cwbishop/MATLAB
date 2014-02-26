@@ -26,6 +26,10 @@
 %                 the memmapfile_name must be .fdt.  The memmapfile
 %                 functions process files based on their suffix, and an
 %                 error will occur if you use a different suffix.
+%   'precision':    string describing data precision during loading
+%                   process. ['single' | 'double']. If this field is
+%                   ommitted, program will attempt to check eeglab_options.
+%                   If that doesn't work, then it will default to 'single'
 %
 % Outputs:
 %  cnt          - structure with the continuous data and other informations
@@ -74,6 +78,22 @@ try, r.blockread;  catch, r.blockread = []; end
 try, r.dataformat; catch, r.dataformat = 'auto'; end
 try, r.memmapfile; catch, r.memmapfile = ''; end
 
+%% DATA PRECISION CHECK
+if ~isfield(r, 'precision') || isempty(r.precision)
+    
+    % Try loading eeglab defaults. Otherwise, go with single precision.
+    try
+        eeglab_options;
+        if option_single==1
+            r.precision='single';
+        else
+            r.precision='double';
+        end % if option_single
+    catch
+        r.precision='single';
+    end % try catch
+    
+end % ~isfield(...
 
 sizeEvent1 = 8  ; %%% 8  bytes for Event1  
 sizeEvent2 = 19 ; %%% 19 bytes for Event2 
@@ -509,14 +529,15 @@ if type == 'cnt'
                 %   appropriate section of data.
                 
                 dat=fread(fid, [h.nchannels r.ldnsamples], r.dataformat);  
-                % Convert to single precision
-                %   loadcnt always converted to single precision. CWB
-                %   modified to check eeglab_options and only convert if
-                %   single precision is requested by user. 
-                eeglab_options; 
-                if option_single==1
-                    dat=single(dat);     
-                end % if option_single
+                
+                %% CONVERT TO PROPER DATA PRECISION
+                %   Change to single precision if necessary. Or double if
+                %   the data type is not already a double. 
+                if strcmpi(r.precision, 'single')
+                    dat=single(dat);
+                elseif strcmpi(r.precision, 'double') && ~isa(dat, 'double')
+                    dat=double(dat); 
+                end % if strcmpi
                 
                 % original code
                 %   CWB commented this out. 

@@ -1,4 +1,4 @@
-function CNT_CHANOPS(IN, OUT, CHANOPS, OCHLAB, BLOCKSIZE, DATAFORMAT)
+function CNT_CHANOPS(IN, OUT, CHANOPS, OCHLAB, BLOCKSIZE, DATAFORMAT, PRECISION)
 %% DESCRIPTION:
 %
 %   Function to perform channel operations (e.g., referencing) of Neuroscan
@@ -36,6 +36,9 @@ function CNT_CHANOPS(IN, OUT, CHANOPS, OCHLAB, BLOCKSIZE, DATAFORMAT)
 %               (useful for testing on small data sets) set to -1.
 %   DATAFORMAT: 'int16' | 'int32'; If empty, the native precision of the
 %               input file is used.
+%   PRECISION:  'single' | 'double'. Data precision when loaded in call to
+%               loadcnt.m. If not specified, will attempt to check EEGLAB
+%               options. If that doesn't work, then defaults to 'double'.
 %
 % OUTPUT:
 %
@@ -55,12 +58,28 @@ function CNT_CHANOPS(IN, OUT, CHANOPS, OCHLAB, BLOCKSIZE, DATAFORMAT)
 if ~exist('BLOCKSIZE', 'var') || isempty(BLOCKSIZE), BLOCKSIZE=1; end 
 if ~exist('DATAFORMAT', 'var'), DATAFORMAT=[]; end % use default data format
 
+%% DATA PRECISION CHECK
+if ~exist('PRECISION', 'var') || isempty(PRECISION)
+    
+    % Try loading eeglab defaults. Otherwise, go with single precision.
+    try
+        eeglab_options;
+        if option_single==1
+            PRECISION='single';
+        else
+            PRECISION='double';
+        end % if option_single
+    catch
+        PRECISION='double';
+    end % try catch
+    
+end % ~isfield(...
 %% GET EVENT TABLE
 %   use same call used to read data segment below
 if BLOCKSIZE>0 && BLOCKSIZE<1
-    ostruct=CNT_READ(IN, [0 BLOCKSIZE]); 
+    ostruct=CNT_READ(IN, [0 BLOCKSIZE], PRECISION); 
 else
-    ostruct=CNT_READ(IN, [0 1]); 
+    ostruct=CNT_READ(IN, [0 1], PRECISION); 
 end % if 
 
 %% INITIATE NECESSARY VARIABLES
@@ -104,7 +123,7 @@ for i=1:nblocks
         ind = [(i-1)*BLOCKSIZE i*BLOCKSIZE-1];
     end %
     IND=[IND; ind]; % for debugging purposes. 
-    tstruct=CNT_READ(IN, ind); 
+    tstruct=CNT_READ(IN, ind, PRECISION); 
     data=tstruct.data; 
     
     %% PERFORM CHANNEL OPERATION
@@ -251,7 +270,7 @@ writecnt(OUT,OSTRUCT,'dataformat',OSTRUCT.dataformat,...
 
 end % WRITE_EVENTTAG
 
-function CNT=CNT_READ(IN, T)
+function CNT=CNT_READ(IN, T, PRECISION)
 %% DESCRIPTION:
 %
 %   Function to read a given CNT data segment (defined by samples). 
@@ -276,7 +295,8 @@ if length(T)==1, T=[T T]; end % need 2 elements
 %   Warning messages from loadcnt are obnoxious. Suppress them.
 warning('off', 'all');
 
-CNT=loadcnt(IN, 'sample1', T(1), 'ldnsamples', diff(T)+1); % add one for T(1);
+% Load samples and set data precision
+CNT=loadcnt(IN, 'sample1', T(1), 'ldnsamples', diff(T)+1, 'precision', PRECISION); % add one for T(1);
 
 %% TURN WARNINGS BACK ON
 warning('on', 'all');
