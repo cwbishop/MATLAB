@@ -413,9 +413,19 @@ if type == 'cnt'
   
         fseek(fid, startpos, 0);
         if channel_off <= 1
-              for temploop =1:WriteOptions.ldnsamples;
-                  fwrite(fid, dat(1:h.nchannels, temploop), WriteOptions.dataformat)';
-            end;
+            
+            %%140226 CWB: Optimization
+            %   Looped calls to fwrite were extremely slow. Rewrote to
+            %   decrease run time.
+            fwrite(fid, reshape(dat, 1, numel(dat)), WriteOptions.dataformat);
+            
+            %% 140226 CWB:
+            %   Original code commented out by CWB
+%               for temploop =1:WriteOptions.ldnsamples;
+%                   fwrite(fid, dat(1:h.nchannels, temploop), WriteOptions.dataformat)';
+%             end;
+%
+%           end original code
         else
               for temploop =1:h.nchannels;
                   fwrite(fid, dat(temploop, 1:channel_off), WriteOptions.dataformat)';
