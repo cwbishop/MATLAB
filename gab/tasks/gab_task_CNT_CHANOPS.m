@@ -15,6 +15,7 @@ function results=gab_task_CNT_CHANOPS(args)
 %                   size setting.
 %       DATAFORMAT: 'int16' | 'int32'; If empty, the native precision of 
 %                   the input file is used. Recommend leaving this empty.
+%       PRECISION:  'single' | 'double'. 
 %
 % OUTPUT:
 %
@@ -35,7 +36,7 @@ end % if length
 %% LOOP THROUGH ALL FILES
 %   Since we accept a cell array, do the following on 
 for i=1:length(args.IN)
-    CNT_CHANOPS(args.IN{i}, args.OUT{i}, args.CHANOPS, args.OCHLAB, args.BLOCKSIZE, args.DATAFORMAT)
+    CNT_CHANOPS(args.IN{i}, args.OUT{i}, args.CHANOPS, args.OCHLAB, args.BLOCKSIZE, args.DATAFORMAT, args.PRECISION)
 end % i=1:length(args.IN)
 
 %% SET RESULTS
