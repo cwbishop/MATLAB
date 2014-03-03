@@ -25,7 +25,9 @@ function [JOB]=gab_replace_task_args(JOB, TASK, ARGS, JNAME)
 %
 %   JOB:   Job structure with modified tasks.
 %
-%
+% Bishop, CW
+%   Miller Lab: UC Davis
+%   Date unknown
 
 %% IS TASK AN ARRAY OR A STRING?
 if isa(TASK, 'double'), IND=TASK; else IND=[]; end 

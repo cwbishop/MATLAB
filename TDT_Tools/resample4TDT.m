@@ -25,6 +25,11 @@ function DOUT=resample4TDT(DATA, FS, DFS)
 %   University of Washington
 %   02/2014
 
+%% INPUT CHECK
+
+% Aliasing warning
+if DFS>FS, error('No anti-aliasing filter implemented (yet). Not sure we need one ... CWB needs to check.'); end 
+
 DOUT=[];
 for i=1:size(DATA,2)
     DOUT(:,i)=interp1(1:size(DATA,1), DATA(:,i), 1:DFS/FS:size(DATA,1), 'linear');

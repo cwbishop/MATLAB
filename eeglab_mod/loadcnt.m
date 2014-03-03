@@ -456,7 +456,7 @@ if type == 'cnt'
           % 16 and 32 bit files, respectively.
           data_block = 4000000 ;
 %           max_rows =  data_block / h.nchannels ;
-          floor(data_block / h.nchannels ); % bug 1539
+          max_rows=floor(data_block / h.nchannels ); % bug 1539
 
           %warning off ;
           max_written = h.nchannels * uint32(max_rows) ;
