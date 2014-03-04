@@ -264,7 +264,10 @@ if nargin==1  %with GUI
                 mtystr = 'off';
         end
         
-        linespeci = linespeci(1:length(binArray));
+%         linespeci = linespeci(1:length(binArray));
+        % 14/03/04 CWB: modified so traces are always the same color in
+        % plots. 
+        linespeci = linespeci(binArray); 
         
         %
         % Somersault
@@ -282,7 +285,10 @@ end
 %
 % Parsing inputs
 %
-colordef = {'k' 'r' 'b' 'g' 'c' 'm' 'y' };% default colors
+% colordef = {'k' 'r' 'b' 'g' 'c' 'm' 'y' };% default colors
+[colordef]=erplab_linespec(max(binArray));
+colordef=colordef(binArray);
+
 p = inputParser;
 p.FunctionName  = mfilename;
 p.CaseSensitive = false;
@@ -572,9 +578,18 @@ end
 if ismaxim==0
         findplot = sort(findobj('Tag','ERP_figure'));
         if ~isempty(findplot)
-                lastfig = figure(findplot(end));
+                % 14/03/04 CWB: 
+                %   If an external legend is generated, look back one
+                %   figure. Otherwise, the new figure is sized to the size
+                %   of the external figure legend
+                if qlegepos~=3 % if we did not generate an external 
+                    lastfig = figure(findplot(end));                    
+                elseif qlegepos==3
+                    lastfig = figure(findplot(end)-1);
+                end % if qlegepos~=3
                 posfx   = get(lastfig,'Position');
                 scrsz = get(0,'ScreenSize');
+                
                 if posfx(3)>=scrsz(1,3) || posfx(4)>=scrsz(1,4)
                         posfx([3 4]) = [scrsz(3)/2 scrsz(4)/2];
                 end

@@ -15,7 +15,8 @@ function cb_pop_ploterps(ERP, binArray, chanArray, varargin)
 %   CWB tried using the input parser scheme used by ERPLAB, but it will
 %   *not* allow parameter values to be modified on the fly. Thus, CWB opted
 %   to go with a simple structure that can be modified on a whim. 
-%   
+%
+%
 % INPUT:
 %
 %   ERP:    ERPLAB structure
@@ -27,7 +28,7 @@ function cb_pop_ploterps(ERP, binArray, chanArray, varargin)
 %
 % OUTPUT:
 %
-%   ERPLAB like plot
+%   ERPLAB like plot.
 %
 % Example:
 %   cb_pop_ploterps(ERP, [1:3], 1, 'Style', 'Classic');
@@ -116,7 +117,7 @@ else
 	firstinput = filename4erp;
 end
 
-skipfields = {'ERP','binArray','chanArray', 'ErrorMsg','History'};
+skipfields = {firstinput,'binArray','chanArray', 'ErrorMsg','History'}; % modified so other variable names can be used as inputs for ERP
 if qyauto
 	skipfields = [skipfields 'yscale'];
 end
