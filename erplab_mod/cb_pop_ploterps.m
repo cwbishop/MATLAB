@@ -129,7 +129,7 @@ for q=1:length(fn)
                 fn2res = d.(fn2com); %  input value
                 if ~isempty(fn2res)
                         if ischar(fn2res)
-                                if ~strcmpi(fn2res,'off')
+                                if ~strcmpi(fn2res,'off') || strcmpi(fn2com, 'AutoYlim') % fix to send autoylim to pop_ploterps
                                     erpcom = sprintf( '%s, ''%s'', ''%s''', erpcom, fn2com, fn2res);
                                 end
                         elseif iscell(fn2res)
