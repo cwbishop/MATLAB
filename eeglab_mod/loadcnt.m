@@ -411,7 +411,9 @@ end;
 %    the total number of available data samples. CWB ran across this error
 %    when he accidentally entered a total sample number larger than the
 %    total number of available data points. 
-if r.ldnsamples-r.sample1 > h.numsamples-r.sample1
+%
+%   This throws a shoe with 16-bit data.
+if r.ldnsamples-r.sample1 > h.numsamples-r.sample1 && strcmpi(r.dataformat, 'int32')
     tldnsamples=r.ldnsamples; 
     r.ldnsamples=h.numsamples-r.sample1; 
     warning('loadcnt:SampleError', ['User requested ' num2str(tldnsamples) ' loaded beginning at sample ' num2str(r.sample1) '.\n' ...
