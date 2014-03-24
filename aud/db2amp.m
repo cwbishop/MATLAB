@@ -1,3 +1,3 @@
 function y = db2amp(x)
 
-y= (10^(x/20));
+y= (10.^(x/20));
