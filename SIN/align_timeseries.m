@@ -118,7 +118,7 @@ Y=resample(Y, p.fsx, p.fsy);
 %   A realignment parameter is estimtated for each time series in Y such
 %   that, when applied, the time series in Y should be maximally aligned
 %   with X. 
-lags=nan(size(Y,2));
+lags=nan(size(Y,2),1);
 Y_align=[];
 X_align=[];
 for i=1:size(Y,2)
@@ -166,25 +166,34 @@ if p.yoke
     lags=lags(mask); 
 end 
 
-% Now, apply realignment to all data series. 
+% Now, apply realignment to all data series.
+%   Preallocate X_align and Y_align
+warning('Should these be nan??'); 
+X_align=zeros(size(X,1)+abs(min(lags)),size(X,2));
+Y_align=zeros(size(Y,1)+abs(max(lags)),size(Y,2)); 
+
 for i=1:size(Y,2)
     if lags(i,1)>0
         % Positive lag means Y happens BEFORE X. 
-        Y_align(:,i)=[zeros(lags(i,1), 1); Y(:, i)]; 
-        X_align(:,i)=[X; zeros(lags(i,1), 1)];
+        ypad=zeros(size(Y_align,1) - (abs(lags(i,1)) + size(Y,1)), 1);
+        xpad=zeros(size(X_align,1) - size(X,1), 1);
+        Y_align(:,i)=[zeros(lags(i,1), 1); Y(:, i); ypad ]; 
+        X_align(:,i)=[X; zeros(lags(i,1), 1); xpad];
     elseif lags(i,1)<0
-        % Negative lag means Y happens AFTER X. 
-        X_align(:,i)=[zeros(abs(lags(i,1)), 1); X]; 
-        Y_align(:,i)=[Y(:,i); zeros(lags(i,1), 1)];
+        % Negative lag means Y happens AFTER X.
+        xpad=zeros(size(X_align,1) - (abs(lags(i,1)) + size(X,1)), 1);
+        ypad=zeros(size(Y_align,1) - size(Y,1), 1);
+        X_align(:,i)=[zeros(abs(lags(i,1)), 1); X; xpad]; 
+        Y_align(:,i)=[Y(:,i); ypad];
     end % if lags
 end % for i=1:size(Y,2)
 
 %% RESIZE MATRICES
 % Confirm that X and Y are the same size
 if size(X_align,1) > size(Y_align,1)
-    X_align=[X_align; zeros(size(Y_align,1)-size(X_align,1),1)];
+    Y_align=[Y_align; zeros(size(X_align,1)-size(Y_align,1),size(Y_align,2))];
 elseif size(Y_align,1)>size(X_align,1)
-    Y_align=[Y_align; zeros(size(X_align,1)-size(Y_align,1),1)];
+    X_align=[X_align; zeros(size(Y_align,1)-size(X_align,1),size(X_align, 2))];
 end % if size ...
 
 %% PLOTTING
