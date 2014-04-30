@@ -39,8 +39,15 @@ function d=lineplot2d(X, Y, varargin)
 %       'color':    color (if user wants to specify the color). 
 %       'linestyle':    line style
 %       'opacity':  opacity of error (SEM) shading. 
+%       'startat':  integer, which color index to start with. This is
+%                   useful when multiple calls are made to lineplot2d, but
+%                   the user wants a unique color choice for each line
+%                   plotted. (default=0)
 %       'fignum':   figure number to plot data on. Useful when trying to
 %                   plot data on the same 
+%       'legend_position':  string, legend position (default='best'). See
+%                           doc legend for more details on legend position
+%                           parameters. 
 %       
 %   Development notes:
 %       Add options to modify common plotting parameters we use. 
@@ -75,7 +82,9 @@ d=struct( 'xlabel', {''}, ...
     'color', [], ...
     'linestyle', [], ...
     'opacity', 0.15, ...
-    'fignum', max(findobj('type', 'figure'))+1); 
+    'fignum', max(findobj('type', 'figure'))+1, ...
+    'startat', 0, ...
+    'legend_position', 'best'); 
 
 %% USER DEFINED VALUES
 %   User specified inputs 
@@ -96,22 +105,22 @@ clear y;
 
 %% GET LINE TRACE COLORS
 if ~isempty(d.color)
-    for t=1:size(Y,3)
+    for t=1:size(Y,3)+d.startat % also create for offset start positions
         colorDef{t}=d.color; 
 %         styleDef{t}='-';
     end % for t=1:size(Y,3)
 else
     % Otherwise go with default coloring scheme from ERPLAB
-    [colorDef, ~]=erplab_linespec(size(Y,3));
+    [colorDef, ~]=erplab_linespec(size(Y,3)+d.startat);
 end % ~isempty(d.color)
 
 % Set linestyle information
 if ~isempty(d.linestyle)
-    for t=1:size(Y,3)
+    for t=1:size(Y,3)+d.startat % also create for offset start positions 
         styleDef{t}=d.linestyle; 
     end % for t=1:size(Y,3)    
 else
-    [~, styleDef]=erplab_linespec(size(Y,3)); 
+    [~, styleDef]=erplab_linespec(size(Y,3)+d.startat); 
 end % if ~isempty(d.linestyle)
 
 %% MASSAGE TITLE
@@ -206,7 +215,7 @@ for c=1:size(Y,1)
         end % if size(Y,4)>1
                       
         % Plot mean series for this channel/bin
-        plot(X, tdata, 'Color', colorDef{t}, 'LineStyle', styleDef{t}, 'linewidth', d.linewidth);
+        plot(X, tdata, 'Color', colorDef{t+d.startat}, 'LineStyle', styleDef{t+d.startat}, 'linewidth', d.linewidth);
           
     end % b=1:size(Y,3)
       
@@ -234,6 +243,6 @@ for c=1:size(Y,1)
     ylabel(d.ylabel); 
     
     % Add legend
-    legend(d.legend, 'location', 'best'); 
+    legend(d.legend, 'location', d.legend_position); 
     
 end % c=1:size(Y,1)
