@@ -56,8 +56,9 @@ function [X_align, Y_align]=align_timeseries(X, Y, routine, varargin)
 %                   values deviating by thresh_abs (either positive or
 %                   negative) may contribute to realignment. 
 %
-%   'yoke': bool, apply same temporal shift to all Y time series. This is
-%           useful for stereo recordings. (default = false)
+%   'yoke': bool, apply same temporal shift to all time series. This
+%           ensures that the relative delays between time series in Y
+%           (relative to X) are maintained. 
 %
 %   'fsx':  double, sampling rate of X time series. This only needs to be
 %           specified if X is a double matrix.
@@ -119,8 +120,7 @@ Y=resample(Y, p.fsx, p.fsy);
 %   that, when applied, the time series in Y should be maximally aligned
 %   with X. 
 lags=nan(size(Y,2),1);
-Y_align=[];
-X_align=[];
+
 for i=1:size(Y,2)
     
     switch p.routine
@@ -148,6 +148,7 @@ for i=1:size(Y,2)
             
         case {'threshold'}
             % Threshold checks
+            error('Thresholding not implemented (yet)'); 
         otherwise
             error('Unknown routine'); 
     end % switch p.routine
@@ -163,7 +164,7 @@ if p.yoke
     mask=abs(lags)==min(abs(lags)); 
     
     % Reset all lags to this lag. 
-    lags=lags(mask); 
+    lags(:,:)=lags(mask); 
 end 
 
 % Now, apply realignment to all data series.
@@ -189,7 +190,7 @@ for i=1:size(Y,2)
 end % for i=1:size(Y,2)
 
 %% RESIZE MATRICES
-% Confirm that X and Y are the same size
+% Confirm that X and Y are the same size. If they are not, then make it so.
 if size(X_align,1) > size(Y_align,1)
     Y_align=[Y_align; zeros(size(X_align,1)-size(Y_align,1),size(Y_align,2))];
 elseif size(Y_align,1)>size(X_align,1)
@@ -202,7 +203,7 @@ if p.pflag>0
     
     % Get Labels for Y series
     %   Used to creat figure titles below. 
-    [~, ~, LABELS]=AA_loaddata([ones(size(Y,2), 10)], 'fs', p.fsx);
+    [~, ~, LABELS]=AA_loaddata(ones(size(Y,2), 10), 'fs', p.fsx);
     
     % Generate a single plot for each realigned signal pair
     for i=1:size(Y_align,2)
