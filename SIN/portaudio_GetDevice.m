@@ -10,9 +10,18 @@ function [D]=portaudio_GetDevice(X, varargin)
 %
 %           http://docs.psychtoolbox.org/GetDevices
 %
+%   Function also provides a basic device check to make sure the device
+%   information is not out of date. 
+%
 % INPUT:
 %
-%   X:  string, name of device.
+%   X:  Various information can be provided to gather the device
+%       information. Ultimately, the device structure is returned. 
+%
+%       string, name of device (see 'DeviceName' field from return from 
+%       PsychPortAudio('GetDevices')). 
+%
+%       integer, device ID returned from PsychPortAudio('GetDevices'); 
 %
 % Parameters:
 %   
@@ -34,7 +43,6 @@ function [D]=portaudio_GetDevice(X, varargin)
 %
 % OUTPUT:
 %
-%   Y:  integer, device index for use with PsychPortAudio
 %   d:  structure, device structure.
 %
 % Christopher W. Bishop
@@ -61,9 +69,24 @@ d=PsychPortAudio('GetDevices', p.devicetype);
 
 % If an index is provided, then just spit back the device structure and
 % device index. 
-if isempty(X) || isa(X, 'numeric') 
-    Y=X; 
+if isempty(X) || isa(X, 'numeric')     
     D=PsychPortAudio('GetDevices', [], X); 
+    return
+elseif isstruct(X)
+    
+    % Grab the device structure
+    td=portaudio_GetDevice(X.DeviceIndex); 
+    
+    % Compare with what was provided
+    df=comp_struct(td, X, 0); 
+    
+    % If the device has changed in some way, then throw an error
+    if ~isempty(df)
+        error('Device has changed'); 
+    end % if ~isempty(df) 
+    
+    % Return the structure. 
+    D=X;
     return
 end % if isempty(X) ...
 
