@@ -1,4 +1,4 @@
-function [Y, FS]=portaudio_playrec(IN, OUT, X, FS, T, varargin)
+function [Y, FS]=portaudio_playrec(IN, OUT, X, FS, varargin)
 %% DESCRIPTION:
 %
 %   Function for basic playback and recording using the PsychPortAudio
@@ -7,17 +7,18 @@ function [Y, FS]=portaudio_playrec(IN, OUT, X, FS, T, varargin)
 %   Can be used to record data for arbitrary lengths of time or perform
 %   (near) simultaneous playback/recording. 
 %
-%   This function is a close descendent of record_data.m written by CWB in
-%   2010. 
-% 
-%   Currently uses a 10 second recording buffer that is emptied every ~5 s.
-%   
+%   This function is a spiritual descendent of record_data written by CWB
+%   in 2010. record_data used MATLAB's DAQ instead and had fewer features. 
+%
 % INPUT:
 %
 %   IN: recording device information. Can be a string or integer index into
 %       return from PsychPortAudio('GetDevices'). Strings will be matched
 %       to the 'DeviceName' field returned from PsychPortAudio. Make sure
 %       the string matches perfectly, typos, missing characters and all.
+%
+%       Alternatively, IN (and OUT) can be a device structure. This is the
+%       recommended format. 
 %
 %   OUT:    playback device information. Identical to "IN", but for sound
 %           playback.
@@ -31,16 +32,26 @@ function [Y, FS]=portaudio_playrec(IN, OUT, X, FS, T, varargin)
 %       supported by AA_loaddata. 
 %
 %   FS: sampling rate for sound playback and recording. (default=44100)
-% 
-%   T:  If X is empty and T is provided, records for a specified period of
-%       time in seconds. 
-%
-%       The actual recording time will be approximate, but should always be 
-%       as long or longer than the requested recording duration.
-%       
-%       XXX Devel XXX Set T to Inf for continuous recordings. XXX 
 %
 %   Parameters:
+%
+%       'fsx':      sampling rate for data series X if X is a double or
+%                   single data trace. Note that X is resampled to match FS
+%                   above prior to sound playback/recording. 
+%
+%       'record_time':  total recording time in seconds. Useful when a
+%                       fixed recording is necessary. (default = inf)
+%
+%       'button':       array, buttons that can be pressed to terminate a
+%                       continuous recording. This can either be a
+%                       character (e.g., 'a') or an keyboard index returned
+%                       from KbName (e.g., 65 for 'a'). 
+%
+%                   Note: At the time of writing, both 'button' and
+%                   'record_time' parameters must be met before the
+%                   recording will be terminated. Also, in the event that
+%                   sound playback is requested, sound playback must
+%                   terminate before the recording will end. 
 %
 %       'devicetype':   integer, specifying the preferred device type. This
 %                       is often useful if the user wants to select a
@@ -57,6 +68,14 @@ function [Y, FS]=portaudio_playrec(IN, OUT, X, FS, T, varargin)
 %
 %                       For more information and additional device types,
 %                       see http://docs.psychtoolbox.org/GetDevices
+%
+%       'rec_buffer':   the duration of the recording buffer in seconds.
+%                       This should only be adjusted if the user is
+%                       given an error message to extend the recording
+%                       buffer length. (default = 10) Tampering with this
+%                       parameter, particularly by shortening the buffer,
+%                       could lead to significant problems later. Don't
+%                       mess with this unless you know what you're doing. 
 %                           
 % OUTPUT:
 %
@@ -73,7 +92,6 @@ if ~exist('OUT', 'var'); OUT=[]; end
 if ~exist('X', 'var'); X=[]; end 
 if ~exist('FS', 'var') || isempty(FS); FS=44100; end 
 if ~exist('IN', 'var'); IN=[]; end 
-if ~exist('T', 'var'); T=[]; end 
 
 % Convert parameters to structure
 if length(varargin)>1
@@ -84,10 +102,65 @@ elseif isempty(varargin)
     p=struct();     
 end %
 
-%% DATA PLAYBACK
+% Set recording time
+%   Assume we don't have a minimum recording time by default (so set to 0).
+if ~isfield(p, 'record_time') || isempty(p.record_time), p.record_time=0; end 
+
+% Set termination button
+%   No termination buttons by default
+if ~isfield(p, 'button'), p.button=[]; end 
+
+% Set default recording buffer duration
+if ~isfield(p, 'rec_buffer'), p.rec_buffer=10; end 
+
+% Massage buttons into integer values
+if ~isempty(p.button)
+    for i=1:length(p.button)
+    
+        buttons=[];
+        % If it's a character, convert to integer value
+        if ischar(p.button(i))
+            buttons(i)=KbName(p.button(i));
+        else
+            buttons(i)=p.button(i); 
+        end % if ischar
+    
+    end % for i=1:length(p.button)
+    p.button=buttons; 
+    clear buttons; 
+end % if ~isempty(p.button)
+
+% Create termination key matrix
+%   TERMination_KEYS
+term_keys=zeros(1, 256); 
+term_keys(p.button)=1; 
+
+%% CREATE BUTTON QUEUE
+%   Only create a button queue if there are specific termination buttons
+%   specified. 
+ % so far, a termination button has not been pressed. This is checked repeatedly below. 
+if ~isempty(p.button), 
+    button_term=false;
+    KbQueueCreate([], term_keys); 
+else
+    % If we aren't waiting for a button press, then we need to terminate
+    % recording based on this criterion (see while loop below)
+    button_term=true; 
+end % if ~isempty(p.button) 
+    
+%% LOAD PLAYBACK DATA
 %   Load time series for playback, massage into expected shape
 if ~isempty(X)
-    [X, fs]=AA_loaddata(X); 
+    
+    % Accept double/single/wav format
+    t.datatype=[1 2];
+    if ~isempty(p.fsx)
+        t.fs=p.fsx;
+    else
+        t.fs=[];
+    end % if 
+    [X, fs]=AA_loaddata(X, t);     
+    
     % Resample output to match overall sample rate
     %   Will only be done if data are loaded from a WAV file and the sampling
     %   rates do not match. 
@@ -101,7 +174,7 @@ end % if ~isempty(X)
 InitializePsychSound;
 
 %% GET PLAYBACK AND RECORDING DEVICE NUMBER
-%   Will return the index for the playback and recording devices. 
+%   Will return the device structure for sound playback/recording. 
 [pstruct]=portaudio_GetDevice(OUT, p);
 [rstruct]=portaudio_GetDevice(IN, p); 
 
@@ -127,69 +200,86 @@ if ~isempty(X)
 end % if ~isempty(X)
 
 % Allocate Recording Buffer
-%   10 second buffer by default
-PsychPortAudio('GetAudioData', rhand, 10); 
+PsychPortAudio('GetAudioData', rhand, p.rec_buffer); 
 
 % Start recording
 %   Wait for recording to start (for real) before continuing. Helps ensure
 %   recording time (I think). 
 PsychPortAudio('Start', rhand, [], [], 1); 
 
+% rec_start_time is the (approximate) start time of the recording. This is
+% used to track the total recording time. 
+rec_start_time=GetSecs; 
+
 % Start Playback, if requested
 Y=[]; % Recorded data
-if exist('phand', 'var')
+if exist('phand', 'var') && ~isempty(phand)
     
     PsychPortAudio('Start', phand);
     
-    start_time=GetSecs; 
-    
-    % Start soundplayback
-    pstatus=PsychPortAudio('GetStatus', phand);
+    % start_time is used for error checking below to make sure we are
+    % sampling the buffer frequently enough. 
+    start_time=rec_start_time; 
     
     % Now, wait for soundplayback to start
+    %   But only if we're doing sound playback. 
+    pstatus=PsychPortAudio('GetStatus', phand);
     while ~pstatus.Active, pstatus=PsychPortAudio('GetStatus', phand); end 
     
-    % Now, wait for soundplayback to finish.
-    %   While playback is happening, empty the recording buffer
-    %   periodically. 
-    while pstatus.Active
-        
-        if GetSecs - start_time > 5
-            start_time=GetSecs; 
-            y=PsychPortAudio('GetAudioData', rhand);            
-            Y=[Y; y'];            
-        end % if start_time ...
-        
-        pstatus=PsychPortAudio('GetStatus', phand); 
-    end %
-    
-    % Grab whatever is left over in the recording buffer
-    y=PsychPortAudio('GetAudioData', rhand);            
-    Y=[Y; y'];    
-    
-elseif ~isempty(T)
-    
-    % If we are recording for set amount of time. 
-    START_TIME=GetSecs; 
-    st=START_TIME;
-    
-    % Record for T seconds
-    while GetSecs -  START_TIME < T
-        
-        % Empty buffer every ~ 5 s
-        if GetSecs - st > 5     
-            st=GetSecs; 
-            y=PsychPortAudio('GetAudioData', rhand);            
-            Y=[Y; y'];            
-        end % if start_time ...       
-        
-    end % while GetSecs-START_TIME ...    
-
-    % Grab whatever is left over in the recording buffer
-    y=PsychPortAudio('GetAudioData', rhand);            
-    Y=[Y; y'];            
-    
+else
+    % If user does not want sound to playback, then set active to 0. This
+    % is used in the control loop below (see while loop). 
+    pstatus.Active=false;         
 end % exist('phand ...
 
-% Close Devices
+%% START BUTTON QUEUE
+%   Start button queue.
+if ~isempty(p.button), KbQueueStart([]); end 
+
+%% RECORDING BUFFER CONTROL
+%   Empty the recording buffer periodically.
+%
+%   While loop continues until all playback parameters are false. Here
+%   are the parameters.
+%
+%       1. Sound playback must stop (pstatus.Active==0)
+%       2. The minimum recording time has been exceeded
+%       3. One of the termination buttons has been pressed.     
+%       4. We must record at least as many samples as there are in X if
+%       sound playback is requested. This criterion had to be added on
+%       CWB's machine because long playback latencys (>0.4 s) led to a
+%       returned 0 in pstatus.Active. So, we need to keep going until we
+%       reach the end of sound playback. 
+Y=[];
+while pstatus.Active || (GetSecs - rec_start_time < p.record_time) || ~button_term || size(Y,1) < size(X,1)
+        
+    % Determine start time of each loop interation.
+    start_time=GetSecs; 
+        
+    % Gather recorded data on each loop
+    %   Might need to put a check in here to make sure we aren't
+    %   missing samples.
+    y=PsychPortAudio('GetAudioData', rhand);            
+    Y=[Y; y'];          
+    
+    % Look for terminating button press
+    %   If any of the termination buttons have been pressed, then stop
+    %   recording. 
+    if ~isempty(p.button) && KbQueueCheck, button_term=true; end 
+    
+    % Update playback device status. 
+    %   But only update if there's a valid playback handle
+    if exist('phand', 'var') && ~isempty(phand)
+        pstatus=PsychPortAudio('GetStatus', phand);       
+    end % if ~isempty(phand)
+    
+end % while ...
+
+display(['Record time: ' num2str(GetSecs - rec_start_time)]) 
+
+
+% Release Keyboard queue
+KbQueueRelease;
+
+% Close Audio Devices
 PsychPortAudio('Close'); 
