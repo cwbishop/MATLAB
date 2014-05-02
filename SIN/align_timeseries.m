@@ -1,4 +1,4 @@
-function [X_align, Y_align]=align_timeseries(X, Y, routine, varargin)
+function [X_align, Y_align, lags]=align_timeseries(X, Y, routine, varargin)
 %% DESCRIPTION:
 %
 %   Function to align time series using one of several realignment
@@ -65,6 +65,17 @@ function [X_align, Y_align]=align_timeseries(X, Y, routine, varargin)
 %
 %   'fsy':  double, sampling rate of Y time series. This only needs to be
 %           specified if Y is a double matrix. 
+%
+% OUTPUT:
+%   
+%   X_align:    aligned X series. Each column of X_align is realigned 
+%               relative to the same column of Y_align. Since variable lags 
+%               are applied and the direction of the shift may be different 
+%               for each time series pair, it made more sense to CWB to 
+%               create pairs and work from there. 
+%
+%   Y_align:    aligned Y series. Each column of Y_align is realigned 
+%               relative to the corresponding colum of X_align. 
 %
 % Christopher W. Bishop
 %   University of Washington
@@ -147,8 +158,16 @@ for i=1:size(Y,2)
             lags(i,1)=lags(i,1)-(length(corr_xy)+1)/2;
             
         case {'threshold'}
+            
             % Threshold checks
-            error('Thresholding not implemented (yet)'); 
+            %   Can be expanded to include other threshold types, but
+            %   thresh_abs is the most intuitive in the context of Hagerman
+            %   recordings and most other situations CWB is familiar with. 
+            if ~isfield(p, 'thresh_abs') || isempty(p.thresh_abs)
+                error('No threshold specified'); 
+            end % ~isfield(p, 'thresh_abs') || ...            
+            
+            lags(i,1)=find(abs(X)>p.thresh_abs, 1, 'first') - find(abs(Y(:,i))>p.thresh_abs, 1, 'first');
         otherwise
             error('Unknown routine'); 
     end % switch p.routine
@@ -179,7 +198,7 @@ for i=1:size(Y,2)
         ypad=zeros(size(Y_align,1) - (abs(lags(i,1)) + size(Y,1)), 1);
         xpad=zeros(size(X_align,1) - size(X,1), 1);
         Y_align(:,i)=[zeros(lags(i,1), 1); Y(:, i); ypad ]; 
-        X_align(:,i)=[X; zeros(lags(i,1), 1); xpad];
+        X_align(:,i)=[X; xpad];
     elseif lags(i,1)<0
         % Negative lag means Y happens AFTER X.
         xpad=zeros(size(X_align,1) - (abs(lags(i,1)) + size(X,1)), 1);
