@@ -82,6 +82,20 @@ function [Y, FS]=portaudio_playrec(IN, OUT, X, FS, varargin)
 %   Y:  recorded time series
 %   FS: sampling rate of recorded time series
 %
+% Notes to user:
+%
+%   1. There is some variance in the relative initiation times of playback
+%   and recording with repeated calls to portaudio_playrec. For instance,
+%   CWB executed the same playback/record settings and observed shifts in
+%   onset time ranging from 0.4 ms to 3.5 ms. (mean = 1.1 ms +/- 1.1 ms;
+%   N=10). 
+%
+% Development:
+%
+%   1. Add support for simultaneous playback/recording from the same sound
+%   card (mode 3). This will probably be helpful for Christi Miller's
+%   specific circumstances. 
+%
 % Christopher W. Bishop
 %   University of Washington
 %   4/14
@@ -202,6 +216,11 @@ end % if ~isempty(X)
 % Allocate Recording Buffer
 PsychPortAudio('GetAudioData', rhand, p.rec_buffer); 
 
+% Get recording device status
+%   Some of these values are used later to take a better guess at the
+%   necessary recording time
+rstatus=PsychPortAudio('GetStatus', rhand);
+
 % Start recording
 %   Wait for recording to start (for real) before continuing. Helps ensure
 %   recording time (I think). 
@@ -215,11 +234,13 @@ rec_start_time=GetSecs;
 Y=[]; % Recorded data
 if exist('phand', 'var') && ~isempty(phand)
     
-    PsychPortAudio('Start', phand);
+    % Start audio playback, but do not advance until the device has really
+    % started. Should help compensate for intialization time. 
+    PsychPortAudio('Start', phand,[], [], 1);
     
     % start_time is used for error checking below to make sure we are
     % sampling the buffer frequently enough. 
-    start_time=rec_start_time; 
+    playback_start_time=GetSecs;
     
     % Now, wait for soundplayback to start
     %   But only if we're doing sound playback. 
@@ -245,13 +266,14 @@ if ~isempty(p.button), KbQueueStart([]); end
 %       1. Sound playback must stop (pstatus.Active==0)
 %       2. The minimum recording time has been exceeded
 %       3. One of the termination buttons has been pressed.     
-%       4. We must record at least as many samples as there are in X if
-%       sound playback is requested. This criterion had to be added on
-%       CWB's machine because long playback latencys (>0.4 s) led to a
-%       returned 0 in pstatus.Active. So, we need to keep going until we
-%       reach the end of sound playback. 
+%       4. There are at least enough samples recorded to account for
+%       playback latency 
+%
+% Note: CWB thinks the help for 'GetStatus' incorrectly reports the
+% PredictedLatency units as seconds. It's much more likely to be samples
+% based on the magnitude of the values CWB has observed. 
 Y=[];
-while pstatus.Active || (GetSecs - rec_start_time < p.record_time) || ~button_term || size(Y,1) < size(X,1)
+while pstatus.Active || (GetSecs - rec_start_time < p.record_time) || ~button_term  || size(Y,1) < size(X,1) + (playback_start_time - rec_start_time)*FS - ( rstatus.PredictedLatency + pstatus.PredictedLatency)
         
     % Determine start time of each loop interation.
     start_time=GetSecs; 
