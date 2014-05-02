@@ -69,7 +69,14 @@ d=PsychPortAudio('GetDevices', p.devicetype);
 
 % If an index is provided, then just spit back the device structure and
 % device index. 
-if isempty(X) || isa(X, 'numeric')     
+%   Note that the order of the if statements below is very important. Don't
+%   switch things up unless you know what you're doing. 
+if isempty(X)
+    % Return an empty struct if X is not specified
+    %   We don't want to return any devices if the user isn't specific. 
+    D=struct();
+    return
+elseif isa(X, 'numeric') 
     D=PsychPortAudio('GetDevices', [], X); 
     return
 elseif isstruct(X)
