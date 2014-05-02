@@ -36,7 +36,7 @@ defaults.fs=44100;
 defaults.playback.device=portaudio_GetDevice(4); 
 
 % Default recording device
-defaults.record.device=portaudio_GetDevice(2); 
+defaults.record.device=portaudio_GetDevice(1); 
 
 %% HINT
 
