@@ -33,7 +33,7 @@ defaults.fs=44100;
 %       if devices are added or removed. That would be bad and lead to
 %       weird erros. CWB still hasn't found a consistent way to grab the
 %       same device every time. 
-defaults.playback.device=portaudio_GetDevice(4); 
+defaults.playback.device=portaudio_GetDevice(3); 
 
 % Default recording device
 defaults.record.device=portaudio_GetDevice(1); 
@@ -44,14 +44,22 @@ defaults.record.device=portaudio_GetDevice(1);
 defaults.hint.root='C:\Users\cwbishop\Documents\GitHub\MATLAB\SIN\playback\HINT';
 
 %% HAGERMAN RECORDING DEFAULTS
-%   Default values for Hagerman style recordings for SNR estimation 
+%   Defaults for Hagerman_record (used for standard Hagerman style, phase
+%   inverted recordings). 
 defaults.hagerman.fs=defaults.fs;
-defaults.hagerman.playback_channels=[1 2]; 
+defaults.hagerman.playback_channels=2;  % play to right channel only
 defaults.hagerman.sigtag_type='10Hzclicktrain'; % see Hagerman_record for other options.
 defaults.hagerman.sigtag_loc='pre'; 
-defaults.hagerman.mixing_matrix=[...
-    [0.5 0.5] % native polarity for X and Y
-    [0.5 -0.5] % X native, Y inverted
-    [-0.5 0.5] % X inverted, Y native
-    [-0.5 -0.5]]; % both signals inverted
+% Mixing matrix simplified for testing purposes. Only extract one signal
+% (X) 
+defaults.hagerman.mixing_matrix=[... % presets adjusted for testing with Alice
+    [0.5 0.1] % native polarity for X and Y
+    [0.5 -0.1] ];% X native, Y inverted
+%     [-0.5 0.1] % X inverted, Y native
+%     [-0.5 -0.1]]; % both signals inverted
 defaults.hagerman.pflag=0; % don't plot anything by default.
+defaults.hagerman.xtag='Sp'; % tag for target speech
+defaults.hagerman.ytag='No'; % tag for noise (babbly or speech shaped noise) 
+defaults.hagerman.filename_root=''; % don't provide a filename root by default, force user to enter this. 
+defaults.hagerman.write_nbits=32; % bit depth for written wav files from hagerman_record
+defaults.hagerman.write=true; % write wav files by default 

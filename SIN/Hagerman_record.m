@@ -62,6 +62,7 @@ function [rec]=Hagerman_record(X, Y, varargin)
 %                       typical. 
 %
 %   'write':    bool, flag to write wav data to file. 
+%   'write_nbits':  bit depth for written wav files (default = 16 bit). 
 %
 %   'pflag':    integer, specifies plotting information.
 %                   0:  no plots generated (default)
@@ -71,7 +72,9 @@ function [rec]=Hagerman_record(X, Y, varargin)
 %
 %   'ytag':     string, tag information for naming purposes. 
 %
-%   'filename_root':
+%   'filename_root':    root filename for wav file output. No default, so
+%                       if this is not provided, and 'write' is true, this 
+%                       will break. 
 %
 %   'sigtag_type':  string, type of signal tag. Additional options can
 %                   be easily added by expanding a switch statement. 
@@ -162,7 +165,7 @@ if isfield(d, 'fsy') && ~isempty(d.fsy), t.fs=d.fsy; end
 % Playback channel check
 %   Confirm that the number of playback channels corresponds to the number
 %   of columns of X and Y. 
-if numel(d.playback_channels) ~= size(X,2)
+if numel(d.playback_channels) ~= size(X,2) || numel(d.playback_channels) ~= size(Y,2)
     error('Incorrect number of playback channels specified'); 
 end % if numel(p.playback_channels) ...
     
@@ -213,7 +216,7 @@ end % ~isempty(d.sigtag_type
 %   Expand signal tag to match the number of playback channels. For now,
 %   just play the sigtag out of a single channel (whatever the first
 %   playback channel is)
-sigtag=[sigtag zeros(size(sigtag))];
+sigtag=[sigtag zeros(size(sigtag,1), size(X,2)-1)];
 
 %% BEGIN PLAYBACK
 %   Loop through each mixing combination
@@ -252,10 +255,20 @@ for i=1:size(d.mixing_matrix, 1)
     buf(:, d.playback_channels) = out; 
     
     % Playback and record
-    trec=portaudio_playrec(defs.record.device, defs.playback.device, buf, FS); 
+    trec=portaudio_playrec(defs.record.device, defs.playback.device, buf, FS, 'fsx', FS); 
     rec{i}=trec; 
-    
-end % 
 
-%% WRITE DATA TO FILE 
-%   Write recordings to file if specified by the user. 
+    %% WRITE DATA TO FILE 
+    %   Write recordings to file if specified by the user. 
+    if d.write && isfield(d, 'filename_root') && ~isempty(d.filename_root)
+        
+        % Filename
+        fname=[d.filename_root '_' num2str(d.mixing_matrix(i,1)) d.xtag '_' num2str(d.mixing_matrix(i,2)) d.ytag '.wav'];
+        
+        % Write the file at specified wav depth. 
+        wavwrite(rec{i}, FS, d.write_nbits, fname); 
+        
+    end % if p.write ...
+    
+end % for i=1:size(d.mixing_matrix, 1)
+
