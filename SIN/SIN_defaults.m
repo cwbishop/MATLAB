@@ -63,3 +63,8 @@ defaults.hagerman.ytag='No'; % tag for noise (babbly or speech shaped noise)
 defaults.hagerman.filename_root=''; % don't provide a filename root by default, force user to enter this. 
 defaults.hagerman.write_nbits=32; % bit depth for written wav files from hagerman_record
 defaults.hagerman.write=true; % write wav files by default 
+
+%% Acceptable Noise Level (ANL) defaults
+defaults.anl.fs=defaults.fs;
+defaults.anl.playback_channels=2; % just play sounds from one speaker
+defaults.anl.block_dur=4; % 1 sec block size
