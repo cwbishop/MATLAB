@@ -123,17 +123,16 @@ win=win*ones(1, size(X,2));
 nblocks=ceil(size(X,1)./size(win,1)); 
 
 for i=1:nblocks
-    
+    tic
     % Which buffer block are we filling?
     %   Find start and end of the block
     startofblock=buffer_ind(1+mod(i-1,2));
-    endofblock=startofblock+buffer_nsamps/2-1; 
+%     endofblock=startofblock+buffer_nsamps/2-1; 
     
-    pstatus=PsychPortAudio('GetStatus', phand);    
-      
     % Find data we want to load 
     if i==nblocks
-        % Load with the remainder of X, then pad zeros. 
+        % Load with the remainder of X, then pad zeros.         
+        data=[X(1+buffer_nsamps/2*(i-1):end, :); zeros(buffer_nsamps/2 - size(X(1+buffer_nsamps/2*(i-1):end, :),1), size(X,2))];
     else
         data=X(1+buffer_nsamps/2*(i-1):(buffer_nsamps/2)*i,:);
     end 
@@ -147,7 +146,8 @@ for i=1:nblocks
         PsychPortAudio('FillBuffer', phand, zeros(buffer_nsamps,size(data,2))'); 
         
         % Infinite repetitions
-        PsychPortAudio('Start', phand, 0, [], 1);
+        %   Don't wait for it to start, just start moving along
+        PsychPortAudio('Start', phand, 0, [], 0);
         
     end % if i==1
     
@@ -156,30 +156,18 @@ for i=1:nblocks
     pstatus=PsychPortAudio('GetStatus', phand);
     
     % Load data into playback buffer
-    PsychPortAudio('FillBuffer', phand, data', 1, startofblock);    
+    
+%     PsychPortAudio('FillBuffer', phand, data', 1, startofblock);    
+    PsychPortAudio('FillBuffer', phand, data', 1, []);    
+    toc
     
     % Wait for previous section to finish before rewriting the audio 
     while pstatus.ElapsedOutSamples < buffer_nsamps/2 * (i-1), pstatus=PsychPortAudio('GetStatus', phand); end
     
     pstatus=PsychPortAudio('GetStatus', phand);
     % Each time we're half way through a block, start rewriting the buffer
-    while mod(pstatus.ElapsedOutSamples, buffer_nsamps) - startofblock < buffer_nsamps/4 
+    while mod(pstatus.ElapsedOutSamples, buffer_nsamps) - startofblock < buffer_nsamps/4 % start updating sooner.  
         pstatus=PsychPortAudio('GetStatus', phand); 
     end % while
     
-end % while 1
-    
-%% SCAFFOLD SOUND PLAYBACK LOOP
-%   Want to demonstrate that our sound playback loop will work in in
-%   principle. 
-%       Get a sound looping continuously by rewriting blocks of buffer.
-
-% Get indices for data to write to block 1 and block 2
-%   Block 1 fades out in block 2 (linear ramp, or whatever else we decide
-%   to use)
-
-%% ADAPTIVE LOOP
-%   Loop to control adaptive sound playback.
-
-
-
+end % for i=1:nblocks

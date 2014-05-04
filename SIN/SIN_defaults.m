@@ -33,7 +33,7 @@ defaults.fs=44100;
 %       if devices are added or removed. That would be bad and lead to
 %       weird erros. CWB still hasn't found a consistent way to grab the
 %       same device every time. 
-defaults.playback.device=portaudio_GetDevice(3); 
+defaults.playback.device=portaudio_GetDevice(8); 
 
 % Default recording device
 defaults.record.device=portaudio_GetDevice(1); 
@@ -67,4 +67,4 @@ defaults.hagerman.write=true; % write wav files by default
 %% Acceptable Noise Level (ANL) defaults
 defaults.anl.fs=defaults.fs;
 defaults.anl.playback_channels=2; % just play sounds from one speaker
-defaults.anl.block_dur=4; % 1 sec block size
+defaults.anl.block_dur=.1; % 1 sec block size
