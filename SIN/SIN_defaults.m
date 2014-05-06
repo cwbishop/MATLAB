@@ -33,10 +33,10 @@ defaults.fs=44100;
 %       if devices are added or removed. That would be bad and lead to
 %       weird erros. CWB still hasn't found a consistent way to grab the
 %       same device every time. 
-defaults.playback.device=portaudio_GetDevice(10); 
+defaults.playback.device=portaudio_GetDevice(8); 
 
 % Default recording device
-defaults.record.device=portaudio_GetDevice(1); 
+defaults.record.device=portaudio_GetDevice(6); 
 
 %% HINT
 
@@ -65,16 +65,23 @@ defaults.hagerman.write_nbits=32; % bit depth for written wav files from hagerma
 defaults.hagerman.write=true; % write wav files by default 
 
 %% Acceptable Noise Level (ANL) defaults
+% Set sampling rate to the default study sampling rate
 defaults.anl.fs=defaults.fs;
+
+% Set adaptive mode for adaptive sound playback to 'realtime', which allows
+% for (near) real-time changes to the auditory stream. 
+defaults.anl.adaptive_mode='realtime'; 
+
+% Set playback inform
 defaults.anl.playback_channels=2; % just play sounds from one speaker
 defaults.anl.block_dur=.08; % block duration in sec. 0.08 leads to a buffer of 0.16 s (160 ms). 
                             % Generally, the maxmimum delay of signal
                             % modification (see portaudio_adaptiveplay for
                             % details).       
+                            
 % List modification checks and modifiers for portaudio_adaptiveplay
 defaults.anl.modcheck.fhandle=@ANL_modcheck_keypress; 
 defaults.anl.modifier.fhandle=@ANL_modifier_dBscale; 
-% defaults.anl.modifier.fhandle=@(x)x.*db2amp(-1); % 1 dB steps. 
 
 % Fields for modifier
 defaults.anl.modifier.dBstep=1; 
@@ -85,7 +92,7 @@ defaults.anl.modifier.dBstep=1;
 %   presses of the up and down arrow keys. 
 %
 %   Different mod_code sent for each button pressed.
-defaults.anl.keys=[KbName('up') KbName('down')];
+defaults.anl.modcheck.keys=[KbName('up') KbName('down')];
 
 % Create a map for keyboard key creation 
-defaults.anl.map=zeros(256,1); defaults.anl.map(defaults.anl.keys)=1; 
+defaults.anl.modcheck.map=zeros(256,1); defaults.anl.modcheck.map(defaults.anl.modcheck.keys)=1; 
