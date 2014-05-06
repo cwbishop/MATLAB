@@ -46,7 +46,7 @@ end %
 %
 %   If an input strucutre is not provided, then we need to run SIN_defaults
 %   to figure out which way is up. 
-try p.keys; % try a random field we know will be there. structs are goofy and tough to work with sometimes (isempty isn't helpful here) 
+try p.modifier.dBstep; % try a random field we know will be there. structs are goofy and tough to work with sometimes (isempty isn't helpful here) 
     d=p; 
     clear p;
 catch
