@@ -36,7 +36,7 @@ end %
 %
 %   If an input strucutre is not provided, then we need to run SIN_defaults
 %   to figure out which way is up. 
-try p.keys;
+try p.modcheck.keys;
     d=p; 
     clear p;
 catch
@@ -57,7 +57,7 @@ try
 catch 
     
     % If the queue has not been created or started, do so.
-    KbQueueCreate([], d.map); 
+    KbQueueCreate([], d.modcheck.map); 
     
     % Now, start the queue to monitor for button presses
     KbQueueStart; 
@@ -90,13 +90,13 @@ elseif numel(firstPress)>1 || firstPress ~= lastPress
     needmod=false; 
     mod_code=0;
     
-elseif firstPress == d.keys(1)
+elseif firstPress == d.modcheck.keys(1)
     
     % If the 'increase' button was pressed
     needmod=true;
     mod_code=1; 
     
-elseif firstPress == d.keys(2)
+elseif firstPress == d.modcheck.keys(2)
     
     % If the 'decrease' button was pressed, send a different code (-1). 
     needmod=true;
