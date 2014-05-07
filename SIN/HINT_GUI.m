@@ -67,17 +67,21 @@ elseif isempty(varargin)
 end % if length ...
 
 %% SET DEFAULTS
-%   'xlabel':
-%   'ylabel':
+%   'xlabel':   string, xlabel. (default='Trial #')
+%   'ylabel':   string, 'ylabel'. (default='SNR (dB)')
 %   'ntrials': number of trials to play (sets axis information)
 %   'score_labels': cell array, scoring labels used in scoring boxes. These
 %                   default to 'correct' and 'incorrect' 
 %   'string':   string, the text (usually a sentence) to be sored. 
+%   'xdata':    xdata for plotting in inset axes
+%   'ydata':    ydata for plotting in inset axes
 if ~isfield(p, 'xlabel'), p.xlabel='Trial #'; end 
 if ~isfield(p, 'ylabel'), p.ylabel='SNR (dB)'; end 
 if ~isfield(p, 'ntrials'), p.ntrials=20; end % set to 20 by default since we'll never have more than 20
 if ~isfield(p, 'score_labels'), p.score_labels={'Correct', 'Incorrect'}; end 
-    
+if ~isfield(p, 'xdata'), p.xdata=[]; end 
+if ~isfield(p, 'ydata'), p.ydata=[]; end
+
 % Misc defaults
 global max_words;    % the maximum number of scorable words
 global max_options;  % the maximum number of options for each word.
@@ -113,7 +117,7 @@ end % d=1:max_words
 % Set domain
 xlim([0 p.ntrials]); 
 
-%% SET GUI
+%% RESET GUI
 %   Reset words to empty strings, and make all scoring panels invisible by
 %   default.
 
@@ -124,28 +128,30 @@ w=strsplit(p.string);
 
 %  Second, determine which words will be scored, assign word to text box,
 %  then set visibility of scoring panel.
-for i=1:length(w)
+for d=1:length(w)
     
     % First, remove potential markups, like brackets ([]) and '/'
-    tw=strrep(w{i}, '[', '');
+    tw=strrep(w{d}, '[', '');
     tw=strrep(tw, ']', '');
     tw=strrep(tw, '/', '');    
     
-    % Second, assign word to word textbox
-    h=findobj(hObject, 'Tag', ['word' num2str(i) '_text']);
-    set(h, 'String', w{i});
-    
-    % Now, grab the scoring panel handle
-    h=findobj(hObject, 'Tag', ['word' num2str(i) '_scoring']);
+    % Assign word to word textbox
+    set(handles.(['word' num2str(d) '_text']), 'String', w{d});
     
     % If all the letters are uppercase, then assume we'll score this word
     if isstrprop(tw, 'upper')
-        set(h, 'Visible', 'on');        
+        set(handles.(['word' num2str(d) '_scoring']), 'Visible', 'on');        
     else
-        set(h, 'Visible', 'off');        
+        set(handles.(['word' num2str(d) '_scoring']), 'Visible', 'off');        
     end % if isstrprop ...        
-    
+       
 end % for i=1:length(w)
+
+%% UPDATE PLOT
+%  
+%   User has to provide data
+% drawnow;
+% lineplot2d(p.xdata, p.ydata); 
 
 % UIWAIT makes HINT_GUI wait for user response (see UIRESUME)
 uiwait(handles.figure1);
