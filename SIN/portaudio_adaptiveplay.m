@@ -390,14 +390,18 @@ switch lower(d.adaptive_mode)
         
         % 'byseries' was initially intended to administer the HINT. 
         
-        % Sound playback
-        portaudio_playrec([], pstruct, X, FS, 'fsx', FS);
+        % Call modifier information first, in case there are initial
+        % conditions (like scaling sounds relative to one another) that
+        % must be taken care of. 
         
         % Call modcheck        
         [mod_code, c]=d.modcheck.fhandle(c); 
         
         % Modify all time series        
         [X, m]=d.modifier.fhandle(X, mod_code, m); 
+        
+        % Sound playback
+        portaudio_playrec([], pstruct, X, FS, 'fsx', FS);
         
     otherwise
         error(['Unknown adaptive mode (' d.adaptive_mode '). See ''''adaptive_mode''''.']); 
