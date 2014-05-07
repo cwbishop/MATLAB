@@ -48,6 +48,7 @@ function d=lineplot2d(X, Y, varargin)
 %       'legend_position':  string, legend position (default='best'). See
 %                           doc legend for more details on legend position
 %                           parameters. 
+%       'maker':    marker to use for plots
 %       
 %   Development notes:
 %       Add options to modify common plotting parameters we use. 
@@ -80,7 +81,7 @@ d=struct( 'xlabel', {''}, ...
     'grid', 'on', ...
     'linewidth', 1.5, ...
     'color', [], ...
-    'linestyle', [], ...
+    'linestyle', [], ...    
     'opacity', 0.15, ...
     'fignum', max(findobj('type', 'figure'))+1, ...
     'startat', 0, ...
@@ -180,7 +181,14 @@ for c=1:size(Y,1)
     for t=1:size(Y,3) 
         
         % Grab correct figure
-        figure(h(c)); 
+        %   CWB added a try statement here because this fails when grabbing
+        %   the axes from a GUIDE generated figure (tested with
+        %   HINT_GUI.m). 
+        try
+            figure(h(c)); 
+        catch
+        end % try/catch 
+            
         
         % Grab raw data
         tdata=squeeze(Y(c,:,t,:));
@@ -201,7 +209,13 @@ end % c=1:size(Y,1)
 % Second, plot the mean data
 for c=1:size(Y,1)
     % Get back to the correct figure
-    figure(h(c)); 
+    %   Again, CWB added a try catch statement here because this call fails
+    %   with GUIDE generated figures.
+    try
+        figure(h(c)); 
+    catch
+    end % try/catch 
+    
     hold on
     for t=1:size(Y,3)
          
@@ -215,7 +229,13 @@ for c=1:size(Y,1)
         end % if size(Y,4)>1
                       
         % Plot mean series for this channel/bin
-        plot(X, tdata, 'Color', colorDef{t+d.startat}, 'LineStyle', styleDef{t+d.startat}, 'linewidth', d.linewidth);
+        %   Added conditional statement to incorporate marker
+        %   specifications. CWB hates this fix, but he's tired. 
+        if ~isfield(d, 'marker')
+            plot(X, tdata, 'Color', colorDef{t+d.startat}, 'LineStyle', styleDef{t+d.startat}, 'linewidth', d.linewidth);
+        else
+            plot(X, tdata, 'Color', colorDef{t+d.startat}, 'LineStyle', styleDef{t+d.startat}, 'linewidth', d.linewidth, 'Marker', d.marker);
+        end % if isfield
           
     end % b=1:size(Y,3)
       
