@@ -154,6 +154,8 @@ end % for i=1:length(w)
 % lineplot2d(p.xdata, p.ydata); 
 
 % UIWAIT makes HINT_GUI wait for user response (see UIRESUME)
+% plot(p.xdata, p.ydata); 
+lineplot2d(p.xdata, p.ydata, 'marker', 'o'); 
 uiwait(handles.figure1);
 
 % --- Outputs from this function are returned to the command line.
@@ -172,7 +174,7 @@ varargout{1} = handles.output;
 varargout{2}=score; 
 
 % Delete figure
-delete(handles.figure1); 
+% delete(handles.figure1); 
 
 % --- Executes on button press in radiobutton1.
 function radiobutton1_Callback(hObject, eventdata, handles)
@@ -320,3 +322,6 @@ for d=1:max_words
     end % if numel        
     
 end % for d=1:max_words
+
+function plot_some_data(p)
+plot(p.xdata, p.ydata);
