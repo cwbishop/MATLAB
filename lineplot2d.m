@@ -238,11 +238,13 @@ for c=1:size(Y,1)
     end % if ~isempty(d.ylim)
     
     % Set title and axis labels
-    title(d.title{c}); 
-    xlabel(d.xlabel);
-    ylabel(d.ylabel); 
+    %   Only set if values are not empty. 
+    if ~isempty(title(d.title{c})), title(d.title{c}); end % if ~isempty(title ...
+    if ~isempty(d.xlabel), xlabel(d.xlabel); end 
+    if ~isempty(d.ylabel), ylabel(d.ylabel); end
     
     % Add legend
-    legend(d.legend, 'location', d.legend_position); 
+    %   Again, only add if it's not empty.
+    if ~isempty(d.legend), legend(d.legend, 'location', d.legend_position); end 
     
 end % c=1:size(Y,1)
