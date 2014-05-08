@@ -38,11 +38,6 @@ defaults.playback.device=portaudio_GetDevice(8);
 % Default recording device
 defaults.record.device=portaudio_GetDevice(6); 
 
-%% HINT
-
-% Root directory of HINT stimuli 
-defaults.hint.root='C:\Users\cwbishop\Documents\GitHub\MATLAB\SIN\playback\HINT';
-
 %% HAGERMAN RECORDING DEFAULTS
 %   Defaults for Hagerman_record (used for standard Hagerman style, phase
 %   inverted recordings). 
@@ -73,7 +68,7 @@ defaults.anl.fs=defaults.fs;
 defaults.anl.adaptive_mode='realtime'; 
 
 % Set playback inform
-defaults.anl.playback_channels=2; % just play sounds from one speaker
+defaults.anl.playback_channels=[1 2]; % just play sounds from one speaker
 defaults.anl.block_dur=.08; % block duration in sec. 0.08 leads to a buffer of 0.16 s (160 ms). 
                             % Generally, the maxmimum delay of signal
                             % modification (see portaudio_adaptiveplay for
@@ -96,3 +91,23 @@ defaults.anl.modcheck.keys=[KbName('up') KbName('down')];
 
 % Create a map for keyboard key creation 
 defaults.anl.modcheck.map=zeros(256,1); defaults.anl.modcheck.map(defaults.anl.modcheck.keys)=1; 
+
+%% HINT DEFAULTS
+
+% File containing HINT information by sentence
+defaults.hint=defaults.anl; % pull down ANL defaults to start with
+
+% Root directory of HINT stimuli 
+defaults.hint.root='C:\Users\cwbishop\Documents\GitHub\MATLAB\SIN\playback\HINT';
+defaults.hint.adaptive_mode='byfile'; % gather feedback after each sentence. 
+
+% HINT List loading paramters
+%   filename:   path to HINT xlsx file containing HINT stimuli information.
+%   sheetnum:   sheet number to load from the xlsx file (#2 has the most
+%               sensicle entries; add sheets if you want something
+%               different)
+defaults.hint.list.filename=fullfile(defaults.hint.root, 'HINT.xlsx');
+defaults.hint.list.sheetnum=2;
+
+% HINT modcheck and modifier
+defaults.hint.modcheck.fhandle=@HINT_modcheck_GUI;

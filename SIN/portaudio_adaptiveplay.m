@@ -122,13 +122,39 @@ function portaudio_adaptiveplay(X, varargin)
 %                                       problems (like buffer underruns).
 %                                       Choose your poison. 
 %
-%                           'byseries':    apply modifications at the end 
+%                           'byfile':      apply modifications at the end 
 %                                           of each playback file. (under
 %                                           development). This mode was
 %                                           intended to accomodate the 
 %                                           HINT.       
 %
-% Windowing options (for 'realtime' playback):
+%   'append_files':     bool, append data files into a single file. This
+%                       might be useful if the user wants to play an
+%                       uninterrupted stream of files and the timing
+%                       between trials is important. (true | false;
+%                       default=false);
+%
+%                       Note: Appending files might pose some problems for
+%                       established modchecks and modifiers (e.g., for
+%                       HINT). Use this option with caution. 
+%
+%   'stop_if_error':    bool, aborts playback if there's an error. At tiem
+%                       of writing, this only includes a check of the
+%                       'TimeFailed' field of the playback device status.
+%                       But, this can be easily expanded to incorporate all
+%                       kinds of error checks. (true | false; default=true)
+%
+%                       Note: at time of writing, error checking only
+%                       applies to 'realtime' adaptive playback. 
+%
+%                       Note: the 'TimeFailed' field does not increment for
+%                       buffer underruns. Jeez. 
+%
+%                       Note: The 'XRuns' field also does not reflect the
+%                       number of underruns. E-mailed support group on
+%                       5/7/2014. We'll see what they say. 
+%
+% Windowing options (for 'realtime' playback only):
 %
 %   In 'realtime' mode, data are frequently ramped off or on (that is, fade
 %   out or fade in) to create seamless transitions. These paramters allow
@@ -154,10 +180,6 @@ function portaudio_adaptiveplay(X, varargin)
 %   1. Add timing checks to make sure we have enough time to do everything
 %   we need before the buffer runs out
 %
-%   2. Additional windowing parameters and defaults. For windowing, use a
-%   Hanning window by default. 5 ms should be fine, but allow user to
-%   specify duration of windowing in the event that popping occurs.
-%
 %   3. Add options for handling buffer underruns. These should generally
 %   throw an irrecoverable error lest our acoustic control deteriorate, but
 %   there may be circumstances in which the user wants to ignore these
@@ -165,28 +187,22 @@ function portaudio_adaptiveplay(X, varargin)
 %
 %   4. Add continuously looped playback (priority 1). 
 %
-%   5. Handle sound initiation better. Typically buffer position is not
-%   well controlled during playback of first block - meaning the buffer
-%   might be in the middle of the segment by chance and thus some of the
-%   signal is cut out.
-%
-%   6. Handle signal termination better. Need to zero out the buffer, then
-%   stop the portaudio handle. CWB struggling with doing this cleanly at
-%   the moment. He'll come back to it later. 
-%
-%   7. Simple clipping check (signal cannot exceed -1 or 1)
-%
 %   8. Load defaults in a smarter way. Right now hard-coded to load ANL
 %   parameters, but CWB has plans to use this for HINT and other tests.
-%
-%   9. Add "concatenate" to allow user to concatenate several time series.
-%   (e.g., concatenate multiple data files into a single data stream). 
 %
 %   10. Add ability to independently control multiple channels (e.g.,
 %   adaptive changes for each channel separately). Or, alternatively, allow
 %   user to select which channels to apply adaptive changes to rather than
 %   the whole time series and all channels wholesale. Might be worth adding
 %   this to the modifier function ... not sure. Needs more thought. 
+%       - Add flag for independent modification. 
+%       - Or, add an integer channel array specifiying which channels to
+%       apply which modifiers to. This would need to be a cell array. Still
+%       needs more thinking. ...
+%
+%   11. Allow option inputs for c/m (modcheck and modifier data
+%   structures). Might be useful if users need to set initialization
+%   parameters. 
 %
 % Christopher W. Bishop
 %   University of Washington
@@ -208,15 +224,23 @@ end %
 %   Load defaults from SIN_defaults, then overwrite these by user specific
 %   inputs. 
 defs=SIN_defaults; 
-d=defs.anl; 
+d=defs.hint; 
 FS=d.fs; 
 % FS=22050; 
 
 %% FUNCTION SPECIFIC DEFAULTS
 %   - Use a Hanning windowing function by default
 %   - Use 5 ms ramp time
+%   - Do not append files by default 
+%   - Abort if we encounter issues with the sound playback buffer. 
 if ~isfield(d, 'window_fhandle') || isempty(d.window_fhandle), d.window_fhandle=@hann; end
 if ~isfield(d, 'window_dur') || isempty(d.window_dur), d.window_dur=0.005; end 
+if ~isfield(d, 'append_files') || isempty(d.append_files), d.append_files=false; end 
+if ~isfield(d, 'stop_if_error') || isempty(d.stop_if_error), d.stop_if_error=true; end 
+
+% Save file names
+file_list=X; 
+clear X; 
 
 % OVERWRITE DEFAULTS
 %   Overwrite defaults if user specifies something different.
@@ -231,32 +255,78 @@ end % i=1:length(flds)
 clear p; 
 
 %% INTIALIZE MODCHECK AND MODIFIER STRUCTS
+%   Need to provide option settings for user input, so intialization
+%   parameters can be changed if necessary. 
 m=struct(); % modifier struct
 c=struct(); % modcheck struct
 
 %% LOAD DATA
-%   Load X. Support WAV and double format, multi-channel OK
-%   (infinite).
-t.datatype=[1 2];
-if isfield(d, 'fsx') && ~isempty(d.fsx), t.fs=d.fsx; end 
-[X, fsx]=AA_loaddata(X, t); 
+%   1. Support only wav files. 
+%       - Things break if we accept single/double data series with variable
+%       lengths (can't append data types easily using AA_loaddata). So,
+%       just force the user to supply wav files. That should be fine. 
+%
+%   2. Resample data to match the output sample rate. 
+%
+% Note: We want to load all the data ahead of time to minimize
+% computational load during adaptive playback below. Hence why we load data
+% here instead of within the loop below. 
+t.datatype=2;
 
-% Playback channel check
-%   Confirm that the number of playback channels corresponds to the number
-%   of columns of X and Y. 
-if numel(d.playback_channels) ~= size(X,2)
-    error('Incorrect number of playback channels specified'); 
-end % if numel(p.playback_channels) ...
+% Store time series in cell array (stim)
+stim=cell(length(file_list),1); % preallocate for speed.
+for i=1:length(file_list)
+    [tstim, fsx]=AA_loaddata(file_list{i}, t);
+    stim{i}=resample(tstim, FS, fsx); 
+    
+    % Playback channel check
+    %   Confirm that the number of playback channels corresponds to the
+    %   number of columns in stim{i}
+    if numel(d.playback_channels) ~= size(stim{i},2)
+        error(['Incorrect number of playback channels specified for file ' file_list{i}]); 
+    end % if numel(p.playback_channels) ...
+    
+end % for i=1:length(file_list)
 
-%% MATCH SAMPLING RATE
-%   Resample playback sounds so they match the playback sampling rate.
-X=resample(X, FS, fsx); 
+clear tstim fsx;
+
+% Add file_list to d structure
+d.file_list=file_list; 
+
+% Append playback files if flag is set
+if d.append_files
+    
+    tstim=[];
+    
+    for i=1:length(stim)
+        tstim=[tstim; stim{i}];
+    end % for i=1:length(stim)
+    
+    clear stim;
+    stim{1}=tstim; 
+    clear tstim
+    
+end % if d.append_files
 
 %% LOAD PLAYBACK AND RECORDING DEVICES
 %   Get these from SIN_defaults as well. 
 InitializePsychSound; 
 
-%% CREATE BUFFER
+% Get playback device information 
+[pstruct]=portaudio_GetDevice(defs.playback.device);
+
+% Open the playback device 
+%   Only open audio device if 'realtime' selected. Otherwise, device
+%   opening/closing is handled through portaudio_playrec.
+if isequal(d.adaptive_mode, 'realtime')
+    phand = PsychPortAudio('Open', pstruct.DeviceIndex, 1, 0, FS, pstruct.NrOutputChannels);
+end % if isequal(d.adaptive_mode ...
+
+%% BUFFER INFORMATION
+%   This information is only used in 'realtime' adaptive playback. Moved
+%   here rather than below to minimize overhead (below this would be called
+%   repeatedly, but these values do not change over stimuli). 
+
 % Create empty playback buffer
 buffer_nsamps=round(d.block_dur*FS)*2; % need 2 x the buffer duration
 
@@ -269,145 +339,192 @@ block_nsamps=buffer_nsamps/2;
 % Find beginning of each "block" within the buffer
 block_start=[1 block_nsamps+1];
 
-%% OPEN PLAYbACK DEVICE
-% Continuous playback
-[pstruct]=portaudio_GetDevice(defs.playback.device);
-phand = PsychPortAudio('Open', pstruct.DeviceIndex, 1, 0, FS, pstruct.NrOutputChannels); 
+% Creat global trial variable. This information is often needed for
+% modification check and modifier functions. So, just make it available
+% globally and let them tap it if necessary. 
+global trial
 
-%% FILL X TO MATCH NUMBER OF CHANNELS
-x=zeros(size(X,1), pstruct.NrOutputChannels);
-x(:, d.playback_channels)=X; % copy data over into playback channels
-X=x; % reassign X
-
-% Clear temporary variable x 
-clear x; 
-
-%% CREATE WINDOWING FUNCTION (ramp on/off)
-%   For ease, let's use a Hanning window for now (makes implementation more
-%   straightforward). 
-win=window(d.window_fhandle, round(d.window_dur*2*FS)); % Create onset/offset ramp
-
-% Match number of channels
-win=win*ones(1, size(X,2)); 
-
-% Break up by ramp_on and ramp_off (saves time in playback)
-ramp_on=win(1:length(win)/2,:); ramp_on=[ramp_on; ones(block_nsamps - size(ramp_on,1), size(ramp_on,2))];
-ramp_off=win(length(win)/2:end,:); ramp_off=[ramp_off; zeros(block_nsamps - size(ramp_off,1), size(ramp_off,2))];
-
-% nblocks
-%   Number of blocks necessary to present the stimulus from start to finish 
-%   ONCE.
-nblocks=ceil(size(X,1)./size(ramp_on,1)); 
-
-%% INITIALIZE MODIFICATION CHECK AND MOFIFIER
+%% INITIALIZE MODCHECK and MODIFIER
 %   These functions often have substantial overhead on their first call, so
 %   they need to be primed (e.g., if a figure must be generated or a sound
 %   device initialized).
 
 % Call modcheck
-[mod_code, c]=d.modcheck.fhandle(c); 
-        
-% Modify all time series        
-[X, m]=d.modifier.fhandle(X, mod_code, m); 
+[mod_code, c]=d.modcheck.fhandle(d);      
 
-switch lower(d.adaptive_mode)
-    case {'realtime'}
-        for i=1:nblocks
-            tic
-            % Which buffer block are we filling?
-            %   Find start and end of the block
-            startofblock=block_start(1+mod(i-1,2));
+% Call modifier
+%   Call with empty data
+[~, m]=d.modifier.fhandle([], mod_code, d); 
+
+for trial=1:length(stim)
     
-            % Find data we want to load 
-            if i==nblocks
-                % Load with the remainder of X, then pad zeros.         
-                data=[X(1+block_nsamps*(i-1):end, :); zeros(block_nsamps - size(X(1+block_nsamps*(i-1):end, :),1), size(X,2))];
-            else
-                data=X(1+block_nsamps*(i-1):(block_nsamps)*i,:);
-            end 
+    %% SELECT APPROPRIATE STIMULUS
+    X=stim{trial}; 
     
-            % Check if modification necessary
+    %% FILL X TO MATCH NUMBER OF CHANNELS
+    %   Create a matrix of zeros, then copy X over into the appropriate
+    %   channels. CWB prefers this to leaving it up to psychportaudio to
+    %   select the correct playback channels. 
+    x=zeros(size(X,1), pstruct.NrOutputChannels);
+    
+    x(:, d.playback_channels)=X; % copy data over into playback channels
+    X=x; % reassign X
+
+    % Clear temporary variable x 
+    clear x; 
+
+    %% CREATE WINDOWING FUNCTION (ramp on/off)
+    %   This is used for realtime adaptive mode. The windowing function can
+    %   be provided by the user, but it must be a function handle accepted
+    %   by MATLAB's window function.    
+    win=window(d.window_fhandle, round(d.window_dur*2*FS)); % Create onset/offset ramp
+
+    % Match number of channels
+    win=win*ones(1, size(X,2)); 
+
+    % Create ramp_on (for fading in) and ramp_off (for fading out)
+    ramp_on=win(1:ceil(length(win)/2),:); ramp_on=[ramp_on; ones(block_nsamps - size(ramp_on,1), size(ramp_on,2))];
+    ramp_off=win(ceil(length(win)/2):end,:); ramp_off=[ramp_off; zeros(block_nsamps - size(ramp_off,1), size(ramp_off,2))];    
+
+       
+    % Switch to determine mode of adaptive playback. 
+    switch lower(d.adaptive_mode)
+        case {'realtime'}   
+            
+            % nblocks
+            %   Variable only used by 'realtime' plaback
+            nblocks=ceil(size(X,1)./size(ramp_on,1)); 
+            
+            % Loop through each section of the playback loop. 
+            for i=1:nblocks
+                tic
+                % Which buffer block are we filling?
+                %   Find start and end of the block
+                startofblock=block_start(1+mod(i-1,2));
+    
+                % Find data we want to load 
+                if i==nblocks
+                    % Load with the remainder of X, then pad zeros.         
+                    data=[X(1+block_nsamps*(i-1):end, :); zeros(block_nsamps - size(X(1+block_nsamps*(i-1):end, :),1), size(X,2))];
+                else
+                    data=X(1+block_nsamps*(i-1):(block_nsamps)*i,:);
+                end 
+    
+                % Check if modification necessary
+                [mod_code, c]=d.modcheck.fhandle(c); 
+        
+                % Save upcoming data
+                x=data.*ramp_off;
+        
+                % Modify main data stream
+                [X, m]=d.modifier.fhandle(X, mod_code, m); 
+        
+                % Grab data from modified signal
+                if i==nblocks
+                    % Load with the remainder of X, then pad zeros.         
+                    data=[X(1+block_nsamps*(i-1):end, :); zeros(block_nsamps - size(X(1+block_nsamps*(i-1):end, :),1), size(X,2))];
+                else
+                    data=X(1+block_nsamps*(i-1):(block_nsamps)*i,:);
+                end % if 
+        
+                % Ramp new stream up, mix with old stream. 
+                %   - The mixed signal is what's played back. 
+                %   - We don't want to ramp the first block in, since the
+                %   ramp is only intended to fade on block into the next in
+                %   a clean way. 
+                if i==1
+                    data=data + x;
+                else
+                    data=data.*ramp_on + x; 
+                end % if i==1
+    
+                % Basic clipping check
+                if max(max(abs(data))) > 1, error('Signal clipped!'); end 
+                    
+                % First time through, we need to start playback
+                %   This has to be done ahead of time since this defines
+                %   the buffer size for the audio device. 
+                if i==1
+                    % Start audio playback, but do not advance until the device has really
+                    % started. Should help compensate for intialization time. 
+        
+                    % Fill buffer with zeros
+                    PsychPortAudio('FillBuffer', phand, zeros(buffer_nsamps,size(data,2))'); 
+                    PsychPortAudio('Start', phand, ceil(nblocks/2), [], 1);                    
+                    
+                    % Wait until we are in the second block of the buffer,
+                    % then start rewriting the first. Helps with smooth
+                    % starts 
+                    pstatus=PsychPortAudio('GetStatus', phand); 
+                    while mod(pstatus.ElapsedOutSamples, buffer_nsamps) - block_start(2) < buffer_nsamps/4 % start updating sooner.  
+                        pstatus=PsychPortAudio('GetStatus', phand); 
+                    end % while
+                    
+                end % if i==1               
+    
+                % Fill playback buffer in different ways. First time 
+                % through, fill the buffer directly, all other times, just
+                % append the data for the next section. 
+                %
+                % Start playback, but only after the first samples are
+                % loaded into the buffer.                                
+                if false
+                    PsychPortAudio('FillBuffer', phand, data', 0, []);
+                else
+                    % Load data into playback buffer
+                    %   CWB tried specifying the start location (last parameter), but he
+                    %   encountered countless buffer underrun errors. Replacing the start
+                    %   location with [] forces the data to be "appended" to the end of the
+                    %   buffer. For whatever reason, this is far more robust and CWB
+                    %   encountered 0 buffer underrun errors.                 
+                    PsychPortAudio('FillBuffer', phand, data', 1, []);  
+                end % if i==1                
+                
+                toc
+
+                pstatus=PsychPortAudio('GetStatus', phand);
+                
+                % Now, loop until we're half way through the samples in 
+                % this particular buffer block.
+                while mod(pstatus.ElapsedOutSamples, buffer_nsamps) - startofblock < buffer_nsamps/4 ... 
+                        && i<nblocks % additional check here, we don't need to be as careful for the last block
+                    pstatus=PsychPortAudio('GetStatus', phand); 
+                end % while
+                
+                % Error checking after each loop
+                if d.stop_if_error && (pstatus.XRuns >0 || pstatus.TimeFailed >0)
+                    PsychPortAudio('Stop', phand); 
+                    error('Error during sound playback. Check buffer_dur.'); 
+                end % if d.stop ....
+                
+            end % for i=1:nblocks
+            
+            % Schedule stop of playback device.
+            %   Should wait for scheduled sound to complete playback. 
+            PsychPortAudio('Stop', phand, 1); 
+            
+        case {'byfile'}
+        
+            % 'byseries' was initially intended to administer the HINT. 
+        
+            % Call modifier information first, in case there are initial
+            % conditions (like scaling sounds relative to one another) that
+            % must be taken care of. 
+        
+            % Sound playback
+            portaudio_playrec([], pstruct, X, FS, 'fsx', FS);
+            
+            % Call modcheck        
             [mod_code, c]=d.modcheck.fhandle(c); 
         
-            % Save upcoming data
-            x=data.*ramp_off;
-        
-            % Modify main data stream
+            % Modify all time series        
             [X, m]=d.modifier.fhandle(X, mod_code, m); 
         
-            % Grab data from modified signal
-            if i==nblocks
-                % Load with the remainder of X, then pad zeros.         
-                data=[X(1+block_nsamps*(i-1):end, :); zeros(block_nsamps - size(X(1+block_nsamps*(i-1):end, :),1), size(X,2))];
-            else
-                data=X(1+block_nsamps*(i-1):(block_nsamps)*i,:);
-            end % if 
-        
-            % Ramp new stream up, mix with old stream. 
-            %   The mixed signal is what's played back. 
-    
-            % XXX SHOULD THIS BE MIXED DIFFERENTLY FOR THE FIRST DATA BLOCK XXX ???
-            data=data.*ramp_on + x; 
-    
-            % First time through, we need to start playback
-            if i==1
-                % Start audio playback, but do not advance until the device has really
-                % started. Should help compensate for intialization time. 
-        
-                % Fill buffer with zeros
-                PsychPortAudio('FillBuffer', phand, zeros(buffer_nsamps,size(data,2))'); 
-        
-                % Infinite repetitions
-                %   Don't wait for it to start, just start moving along
-                PsychPortAudio('Start', phand, 0, [], 0);
-        
-            end % if i==1
-    
-            % Now, loop until we're half way through the samples in this particular
-            % buffer block
-            pstatus=PsychPortAudio('GetStatus', phand);
-    
-            % Load data into playback buffer
-            %   CWB tried specifying the start location (last parameter), but he
-            %   encountered countless buffer underrun errors. Replacing the start
-            %   location with [] forces the data to be "appended" to the end of the
-            %   buffer. For whatever reason, this is far more robust and CWB
-            %   encountered 0 buffer underrun errors. 
-            PsychPortAudio('FillBuffer', phand, data', 1, []);    
-            toc
-    
-            % Wait for previous section to finish before rewriting the audio 
-            while pstatus.ElapsedOutSamples < block_nsamps * (i-1), pstatus=PsychPortAudio('GetStatus', phand); end
-    
-            pstatus=PsychPortAudio('GetStatus', phand);
-            % Each time we're half way through a block, start rewriting the buffer
-            while mod(pstatus.ElapsedOutSamples, buffer_nsamps) - startofblock < buffer_nsamps/4 % start updating sooner.  
-                pstatus=PsychPortAudio('GetStatus', phand); 
-            end % while
-    
-        end % for i=1:nblocks
-    case {'byseries'}
-        
-        % 'byseries' was initially intended to administer the HINT. 
-        
-        % Call modifier information first, in case there are initial
-        % conditions (like scaling sounds relative to one another) that
-        % must be taken care of. 
-        
-        % Call modcheck        
-        [mod_code, c]=d.modcheck.fhandle(c); 
-        
-        % Modify all time series        
-        [X, m]=d.modifier.fhandle(X, mod_code, m); 
-        
-        % Sound playback
-        portaudio_playrec([], pstruct, X, FS, 'fsx', FS);
-        
-    otherwise
-        error(['Unknown adaptive mode (' d.adaptive_mode '). See ''''adaptive_mode''''.']); 
-end % switch d.adaptive_mode
+        otherwise
+            error(['Unknown adaptive mode (' d.adaptive_mode '). See ''''adaptive_mode''''.']); 
+    end % switch d.adaptive_mode
 
-% Clumsy close
-%   Needs to be smarter to guarantee that sound playback has stopped. See
-%   development notes above. 
+end % for trial=1:length(X)
+
+% Close all open audio devices
 PsychPortAudio('Close')

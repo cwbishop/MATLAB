@@ -85,8 +85,9 @@ elseif isstruct(X)
     td=portaudio_GetDevice(X.DeviceIndex); 
     
     % Compare with what was provided
+    %   Suppress the feedback and plotting 
     df=comp_struct(td, X, 0); 
-    
+
     % If the device has changed in some way, then throw an error
     if ~isempty(df)
         error('Device has changed'); 
