@@ -93,6 +93,9 @@ max_options=2;
 set(get(handles.panel_plot, 'YLabel'), 'String', p.ylabel);
 set(get(handles.panel_plot, 'XLabel'), 'String', p.xlabel);
 
+% Change figure name (upper left corner)
+set(handles.figure1, 'Name', p.title); 
+
 % Label radio buttons 
 %   Attach labels to radio buttons. Makes the GUI more flexible and useful
 %   for reviewing other types of information related to HINT. 
@@ -154,8 +157,10 @@ end % for i=1:length(w)
 % lineplot2d(p.xdata, p.ydata); 
 
 % UIWAIT makes HINT_GUI wait for user response (see UIRESUME)
-% plot(p.xdata, p.ydata); 
-lineplot2d(p.xdata, p.ydata, 'marker', 'o'); 
+%   Only call plot if there are data to plot. 
+if ~isempty(p.xdata) && ~isempty(p.ydata)
+    lineplot2d(p.xdata, p.ydata, 'marker', 'o'); 
+end % if ~
 uiwait(handles.figure1);
 
 % --- Outputs from this function are returned to the command line.
