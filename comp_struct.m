@@ -43,7 +43,7 @@ if nargin < 4 || isempty(pse); pse = 0; elseif pse ~= 1 && prt == 0; pse = 0; en
 if nargin < 5 || isempty(tol); tol = 1e-6; end
 if nargin < 6 || isempty(s1); n1 = 's1'; end
 if nargin < 7 || isempty(s2); n2 = 's2'; end
-if nargin < 8 || isempty(wbf); wbf = 1; end
+if nargin < 8 || isempty(wbf); wbf = 0; end
 if pse > prt, pse = prt; end
 
 % solve
