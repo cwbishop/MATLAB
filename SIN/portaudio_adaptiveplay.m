@@ -145,7 +145,7 @@ function d=portaudio_adaptiveplay(X, varargin)
 %
 %                       Note: The 'XRuns' field also does not reflect the
 %                       number of underruns. E-mailed support group on
-%                       5/7/2014. We'll see what they say. 
+%                       5/7/2014. We'll see what they say.
 %
 % Windowing options (for 'realtime' playback only):
 %
@@ -269,11 +269,15 @@ if d.append_files
 end % if d.append_files
 
 %% LOAD PLAYBACK AND RECORDING DEVICES
-%   Get these from SIN_defaults as well. 
-InitializePsychSound; 
-
-% Get playback device information 
-[pstruct]=portaudio_GetDevice(d.playback.device);
+%   Only run InitializePsychSound if we can't load the device. Reduces
+%   overhead. 
+try
+    % Get playback device information 
+    [pstruct]=portaudio_GetDevice(d.playback.device);
+catch
+    InitializePsychSound; 
+    [pstruct]=portaudio_GetDevice(d.playback.device);
+end % 
 
 % Open the playback device 
 %   Only open audio device if 'realtime' selected. Otherwise, device
@@ -299,10 +303,16 @@ if isequal(d.adaptive_mode, 'realtime')
     % Find beginning of each "block" within the buffer
     block_start=[1 block_nsamps+1];
 end % if isequal
-% Creat global trial variable. This information is often needed for
+
+% Create global trial variable. This information is often needed for
 % modification check and modifier functions. So, just make it available
 % globally and let them tap it if necessary. 
-global trial
+global trial;
+
+% Create a global variable for tracking which modifier we are assessing.
+% This may be needed by modification functions to store data in the correct
+% fields. 
+global modifier_num;
 
 %% INITIALIZE MODCHECK and MODIFIER
 %   These functions often have substantial overhead on their first call, so
@@ -312,9 +322,11 @@ global trial
 % Call modcheck
 [mod_code, d]=d.modcheck.fhandle(d);      
 
-% Call modifier
-%   Call with empty data
-[~, d]=d.modifier.fhandle([], mod_code, d); 
+% Initialized modifiers
+%   Multiple modifiers possible
+for modifier_num=1:length(d.modifier)
+    [~, d]=d.modifier{modifier_num}.fhandle([], mod_code, d); 
+end % for modifier_num
 
 for trial=1:length(stim)
     
@@ -377,7 +389,10 @@ for trial=1:length(stim)
                 x=data.*ramp_off;
         
                 % Modify main data stream
-                [X, d]=d.modifier.fhandle(X, mod_code, d); 
+                %   Apply all modifiers. 
+                for modifier_num=1:length(d.modifier)
+                    [X, d]=d.modifier{modifier_num}.fhandle(X, mod_code, d); 
+                end % for modifier_num ...
         
                 % Grab data from modified signal
                 if i==nblocks
@@ -409,8 +424,14 @@ for trial=1:length(stim)
                     % started. Should help compensate for intialization time. 
         
                     % Fill buffer with zeros
-                    PsychPortAudio('FillBuffer', phand, zeros(buffer_nsamps,size(data,2))'); 
-                    PsychPortAudio('Start', phand, ceil(nblocks/2), [], 1);                    
+                    PsychPortAudio('FillBuffer', phand, zeros(buffer_nsamps,size(data,2))');                     
+                    
+                    % Add one extra block to allow for a clean transition
+                    % below. 
+                    %   Below we wait for the second block of the buffer,
+                    %   then rewrite the first. So, do we lose one or two
+                    %   blocks of playback? Hm. 
+                    PsychPortAudio('Start', phand, ceil( (nblocks)/2), [], 1);                    
                     
                     % Wait until we are in the second block of the buffer,
                     % then start rewriting the first. Helps with smooth
@@ -422,24 +443,14 @@ for trial=1:length(stim)
                     
                 end % if i==1               
     
-                % Fill playback buffer in different ways. First time 
-                % through, fill the buffer directly, all other times, just
-                % append the data for the next section. 
-                %
-                % Start playback, but only after the first samples are
-                % loaded into the buffer.                                
-                if false
-                    PsychPortAudio('FillBuffer', phand, data', 0, []);
-                else
-                    % Load data into playback buffer
-                    %   CWB tried specifying the start location (last parameter), but he
-                    %   encountered countless buffer underrun errors. Replacing the start
-                    %   location with [] forces the data to be "appended" to the end of the
-                    %   buffer. For whatever reason, this is far more robust and CWB
-                    %   encountered 0 buffer underrun errors.                 
-                    PsychPortAudio('FillBuffer', phand, data', 1, []);  
-                end % if i==1                
-                
+                % Load data into playback buffer
+                %   CWB tried specifying the start location (last parameter), but he
+                %   encountered countless buffer underrun errors. Replacing the start
+                %   location with [] forces the data to be "appended" to the end of the
+                %   buffer. For whatever reason, this is far more robust and CWB
+                %   encountered 0 buffer underrun errors.                 
+                PsychPortAudio('FillBuffer', phand, data', 1, []);  
+                                
                 toc
 
                 pstatus=PsychPortAudio('GetStatus', phand);
@@ -459,9 +470,9 @@ for trial=1:length(stim)
                 
             end % for i=1:nblocks
             
-            % Schedule stop of playback device.
-            %   Should wait for scheduled sound to complete playback. 
-            PsychPortAudio('Stop', phand, 1); 
+%             % Schedule stop of playback device.
+%             %   Should wait for scheduled sound to complete playback. 
+%             PsychPortAudio('Stop', phand, 1); 
             
         case {'byfile'}
         
@@ -471,8 +482,11 @@ for trial=1:length(stim)
             % conditions (like scaling sounds relative to one another) that
             % must be taken care of. 
         
-            % Modify all time series        
-            [X, d]=d.modifier.fhandle(X, mod_code, d);
+            % Modify time series
+            %   Apply all modifiers            
+            for modifier_num=1:length(d.modifier)
+                [X, d]=d.modifier{modifier_num}.fhandle(X, mod_code, d);
+            end % for modifier_num
             
             % Sound playback
             portaudio_playrec([], pstruct, X, FS, 'fsx', FS);
@@ -481,7 +495,9 @@ for trial=1:length(stim)
             [mod_code, d]=d.modcheck.fhandle(d); 
         
         otherwise
+            
             error(['Unknown adaptive mode (' d.adaptive_mode '). See ''''adaptive_mode''''.']); 
+            
     end % switch d.adaptive_mode
 
 end % for trial=1:length(X)
