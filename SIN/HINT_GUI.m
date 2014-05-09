@@ -168,7 +168,7 @@ end % for n=1:length(p.words)
 %   When plot data is provided, update the plot. This is useful for
 %   visualization (and debugging). 
 if ~isempty(p.xdata) && ~isempty(p.ydata)
-    lineplot2d(p.xdata, p.ydata, 'marker', 'o'); 
+    lineplot2d(p.xdata, p.ydata, 'marker', 'o');  
 end % if ~
 
 % UIWAIT makes HINT_GUI wait for user response (see UIRESUME)

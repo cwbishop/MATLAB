@@ -38,6 +38,22 @@ function [Y, d]=modifier_dBscale(X, mod_code, varargin)
 %                   d.playback_channels (specified in SIN_defaults or call
 %                   to portaudio_adaptiveplay). 
 %
+%   'scale_mode':   string specifying the scale mode. The scale mode
+%                   determines if files are scaled by the sum of all
+%                   previous scaling decisions (typically the case with the
+%                   HINT or other 'byfile' adaptive_mode deliveries), or
+%                   scales the sound by the most recent modification
+%                   decision only. The latter is typically required to
+%                   administer tests like the Acceptable Noise Level (ANL).
+%
+%                       'cumulative':   time series is scaled by the sum of
+%                                       all previous adjustments (in
+%                                       decibels). 
+%
+%                       'immediate':    the time series are scaled by the
+%                                       most recent scaling parameter only.
+%                                       
+%
 % OUTPUT:
 %
 %   Y:  scaled time series
@@ -69,34 +85,37 @@ function [Y, d]=modifier_dBscale(X, mod_code, varargin)
 %   leave it for now. 
 d=varargin2struct(varargin{:}); 
 
-%% SET DEFAULTS
-% Scale all channels by default
-if ~isfield(d.modifier, 'channels') || isempty(d.modifier.channels), d.modifier.channels=d.playback_channels; end 
-
-%% INITIALIZE MODIFIER SPECIFIC FIELDS (we'll add to these below)
-if ~isfield(d.modifier, 'history'), d.modifier.history=[]; end 
-if ~isfield(d.modifier, 'initialized') || isempty(d.modifier.initialized), d.modifier.initialized=false; end
-    
 %% GET GLOBAL VARIABLES
 global trial;   % trial number set in portaudio_adaptiveplay
+global modifier_num; % modification number. 
+
+%% SET DEFAULTS
+% Scale all channels by default
+if ~isfield(d.modifier{modifier_num}, 'channels') || isempty(d.modifier{modifier_num}.channels), d.modifier{modifier_num}.channels=d.playback_channels; end 
+
+%% INITIALIZE MODIFIER SPECIFIC FIELDS (we'll add to these below)
+if ~isfield(d.modifier{modifier_num}, 'history'), d.modifier{modifier_num}.history=[]; end 
+if ~isfield(d.modifier{modifier_num}, 'initialized') || isempty(d.modifier{modifier_num}.initialized), d.modifier{modifier_num}.initialized=false; end
 
 %% IF THIS IS OUR FIRST CALL, JUST INITIALIZE 
 %   - No modifications necessary, just return the data structures and
 %   original time series.
-if ~d.modifier.initialized
-    d.modifier.initialized=true;
+if ~d.modifier{modifier_num}.initialized
+    d.modifier{modifier_num}.initialized=true;
+    d.modcheck.xdata=[];
+    d.modcheck.ydata=[]; 
     Y=X; 
     return
-end % if ~d.modifier.initialized
+end % if ~d.modifier{modifier_num}.initialized
 
 %% GET APPROPRIATE STEP SIZE
-dBstep=d.modifier.dBstep(find(d.modifier.change_step <= trial, 1, 'last'));
+dBstep=d.modifier{modifier_num}.dBstep(find(d.modifier{modifier_num}.change_step <= trial, 1, 'last'));
 
 %% WHAT TO DO?
 if ~isempty(mod_code)
     switch mod_code
         case {0, 1, -1}
-            d.modifier.history(end+1) = mod_code*dBstep;        
+            d.modifier{modifier_num}.history(end+1) = mod_code*dBstep;        
         otherwise
             error('Unknown modification code');
     end % switch
@@ -104,10 +123,13 @@ if ~isempty(mod_code)
 end % if ~isempty(mod_code)
 
 %% SCALE TIME SERIES
-channels=d.modifier.channels; 
+channels=d.modifier{modifier_num}.channels; 
 
 % Assign X to Y.
 Y=X;
+
+%% UPDATE MODIFIER HISTORY
+d.modcheck.xdata=1:length(d.modcheck.xdata)+1;
 
 % Applies a cumulative change
 %   So changes will be remembered and applied over different stimuli. 
@@ -116,11 +138,23 @@ Y=X;
 %   Check necessary because if d.modifier is empty, sum(history) returns 0.
 %   Not a big deal here, but better not to open ourselves to (unintended)
 %   stimulus alterations. 
-% if ~isempty(d.modifier.history)
-    Y(:, channels)=Y(:, channels).*db2amp(sum(d.modifier.history));
-    
-    %% UPDATE modcheck xdata, ydata
-    %   This is used for plotting purposes in HINT_modcheck_GUI.m 
-    d.modcheck.xdata=1:length(d.modcheck.xdata)+1;
-    d.modcheck.ydata(end+1)=sum(d.modifier.history); 
-% end % ~isempty(d.modifier.history)
+switch d.modifier{modifier_num}.scale_mode
+    case {'cumulative'}
+        
+        % Scale by the sum of all dB steps
+        Y(:, channels)=Y(:, channels).*db2amp(sum(d.modifier{modifier_num}.history));
+        
+        % For plotting purposes
+        d.modcheck.ydata(end+1)=sum(d.modifier{modifier_num}.history); 
+        
+    case {'immediate'}
+        
+        % Scale by the most recent dBstep
+        Y(:, channels)=Y(:, channels).*db2amp(d.modifier{modifier_num}.history(end));
+        
+        % For plotting purposes 
+        d.modcheck.ydata(end+1)=d.modifier{modifier_num}.history(end); 
+        
+    otherwise
+        error('Unknown scale_mode');
+end % switch

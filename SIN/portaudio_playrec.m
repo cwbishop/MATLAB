@@ -202,12 +202,19 @@ if ~isempty(X)
 end % if ~isempty(X)
 
 %% INITIALIZE PORT AUDIO DEVICES
-InitializePsychSound;
+%   Only initialize if we can't get the devices. A crude check to reduce
+%   processing overhead. 
+try
+    %% GET PLAYBACK AND RECORDING DEVICE NUMBER
+    %   Will return the device structure for sound playback/recording. 
+    [pstruct]=portaudio_GetDevice(OUT, p);
+    [rstruct]=portaudio_GetDevice(IN, p); 
+catch
+    InitializePsychSound;
+    [pstruct]=portaudio_GetDevice(OUT, p);
+    [rstruct]=portaudio_GetDevice(IN, p); 
+end % try/catch
 
-%% GET PLAYBACK AND RECORDING DEVICE NUMBER
-%   Will return the device structure for sound playback/recording. 
-[pstruct]=portaudio_GetDevice(OUT, p);
-[rstruct]=portaudio_GetDevice(IN, p); 
 
 %% ERROR CHECKS FOR DATA PLAYBACK
 %   - Make sure we have data for all playback channels

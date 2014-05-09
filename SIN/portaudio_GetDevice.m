@@ -62,7 +62,14 @@ end %
 if ~isfield(p, 'devicetype'), p.devicetype=[]; end;
 
 %% INITIALIZE PSYCHSOUND
-InitializePsychSound;
+%   Only initialize psych sound if we can't get the devices. 
+try
+    % Get devices
+    d=PsychPortAudio('GetDevices', p.devicetype);
+catch
+    InitializePsychSound;
+    d=PsychPortAudio('GetDevices', p.devicetype);
+end % try/catch
 
 % Get devices
 d=PsychPortAudio('GetDevices', p.devicetype);

@@ -18,6 +18,10 @@ function defaults=SIN_defaults
 %   University of Washington 
 %   5/14
 
+%% GENERAL PREP:
+%   System settings we need to set.
+beep off;
+
 %% GLOBAL DEFAULTS
 %   Set some global defaults that are inherited below. This should include
 %   information like sampling rate, etc. provided it should be held
@@ -62,10 +66,12 @@ defaults.hagerman.write=true; % write wav files by default
 %% Acceptable Noise Level (ANL) defaults
 % Set sampling rate to the default study sampling rate
 defaults.anl.fs=defaults.fs;
+defaults.anl.playback=defaults.playback; % grab the default playback device. 
 
 % Set adaptive mode for adaptive sound playback to 'realtime', which allows
 % for (near) real-time changes to the auditory stream. 
 defaults.anl.adaptive_mode='realtime'; 
+defaults.anl.append_files=true;  % append all the files together. 
 
 % Set playback inform
 defaults.anl.playback_channels=[1 2]; % just play sounds from one speaker
@@ -76,10 +82,12 @@ defaults.anl.block_dur=.08; % block duration in sec. 0.08 leads to a buffer of 0
                             
 % List modification checks and modifiers for portaudio_adaptiveplay
 defaults.anl.modcheck.fhandle=@ANL_modcheck_keypress; 
-defaults.anl.modifier.fhandle=@ANL_modifier_dBscale; 
+defaults.anl.modifier{1}.fhandle=@modifier_dBscale; 
 
 % Fields for modifier
-defaults.anl.modifier.dBstep=1; 
+defaults.anl.modifier{1}.dBstep=1; 
+defaults.anl.modifier{1}.change_step=1; 
+defaults.anl.modifier{1}.scale_mode='immediate';
 
 % Create button mapping for button feedback
 %   These values are used by ANL_modcheck_keypress.m. See function for
@@ -126,11 +134,21 @@ defaults.hint.modcheck.target=0.50; % proportion of correct responses to target
 defaults.hint.modcheck.scoring_method='sentence_based'; 
 defaults.hint.modcheck.scoring_labels={'Correct' 'Incorrect'}; 
 
+% Speech modifier %
 % modifier_dBscale %
 %   Parameters needed for modifer_dBscale. If a different modifier is used,
 %   replace these fields with whatever the modifier requires (see the
 %   modifier help). 
-defaults.hint.modifier.fhandle=@modifier_dBscale; 
-defaults.hint.modifier.dBstep=[4 2]; % 2 dB steps to begin with. This is totally arbitrary
-defaults.hint.modifier.change_step=[1 5]; % the trial on which to start applying the dBstep
-defaults.hint.modifier.channels=defaults.hint.playback_channels;
+%
+%   These parameters are only applied to the speech track (channel 2)
+defaults.hint.modifier{1}.fhandle=@modifier_dBscale; 
+defaults.hint.modifier{1}.dBstep=[4 2]; % 2 dB steps to begin with. This is totally arbitrary
+defaults.hint.modifier{1}.change_step=[1 5]; % the trial on which to start applying the dBstep
+defaults.hint.modifier{1}.channels=2;
+defaults.hint.modifier{1}.scale_mode='cumulative';
+
+% Noise modifier
+%   Noise is played from the left channel (channel 1)
+defaults.hint.modifier{2}.fhandle=@modifier_zerochannels; 
+defaults.hint.modifier{2}.channels=1;
+% 
