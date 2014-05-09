@@ -171,6 +171,9 @@ function d=portaudio_adaptiveplay(X, varargin)
 %
 % Development:
 %
+%   - It sounds like sounds in realtime adaptive_mode might be clipped at
+%   the end. Double check indexing for last data block. 
+%
 %   1. Add timing checks to make sure we have enough time to do everything
 %   we need before the buffer runs out
 %
@@ -302,6 +305,10 @@ if isequal(d.adaptive_mode, 'realtime')
 
     % Find beginning of each "block" within the buffer
     block_start=[1 block_nsamps+1];
+    
+    % Refill at at the 1/2 way point through each buffer block. 
+    refillat=buffer_nsamps/4; 
+    
 end % if isequal
 
 % Create global trial variable. This information is often needed for
@@ -426,18 +433,19 @@ for trial=1:length(stim)
                     % Fill buffer with zeros
                     PsychPortAudio('FillBuffer', phand, zeros(buffer_nsamps,size(data,2))');                     
                     
-                    % Add one extra block to allow for a clean transition
-                    % below. 
-                    %   Below we wait for the second block of the buffer,
-                    %   then rewrite the first. So, do we lose one or two
-                    %   blocks of playback? Hm. 
-                    PsychPortAudio('Start', phand, ceil( (nblocks)/2), [], 1);                    
+                    % Add one extra repetition to for a clean transition.
+                    % Note that below we wait for the second buffer block
+                    % before we fill the first, so we end up losing a
+                    % single playthrough the buffer. This could be handled
+                    % better, but CWB isn't sure how to do that (robustly)
+                    % at the moment.
+                    PsychPortAudio('Start', phand, ceil( (nblocks)/2)+1, [], 0);                    
                     
                     % Wait until we are in the second block of the buffer,
                     % then start rewriting the first. Helps with smooth
                     % starts 
                     pstatus=PsychPortAudio('GetStatus', phand); 
-                    while mod(pstatus.ElapsedOutSamples, buffer_nsamps) - block_start(2) < buffer_nsamps/4 % start updating sooner.  
+                    while mod(pstatus.ElapsedOutSamples, buffer_nsamps) - block_start(2) < refillat % start updating sooner.  
                         pstatus=PsychPortAudio('GetStatus', phand); 
                     end % while
                     
@@ -457,7 +465,7 @@ for trial=1:length(stim)
                 
                 % Now, loop until we're half way through the samples in 
                 % this particular buffer block.
-                while mod(pstatus.ElapsedOutSamples, buffer_nsamps) - startofblock < buffer_nsamps/4 ... 
+                while mod(pstatus.ElapsedOutSamples, buffer_nsamps) - startofblock < refillat ... 
                         && i<nblocks % additional check here, we don't need to be as careful for the last block
                     pstatus=PsychPortAudio('GetStatus', phand); 
                 end % while
@@ -468,11 +476,21 @@ for trial=1:length(stim)
                     error('Error during sound playback. Check buffer_dur.'); 
                 end % if d.stop ....
                 
+                % Zero out the second buffer block if we happen to end in
+                % the first. 
+                %   If this is not done, whatever was left in the second
+                %   buffer block is played back again, which creates an
+                %   artifact. 
+                if i==nblocks && startofblock==block_start(1)
+                    data=zeros(block_nsamps, size(X,2)); 
+                    PsychPortAudio('FillBuffer', phand, data', 1, []);  
+                end % if i==nblocks
+                
             end % for i=1:nblocks
             
-%             % Schedule stop of playback device.
-%             %   Should wait for scheduled sound to complete playback. 
-%             PsychPortAudio('Stop', phand, 1); 
+            % Schedule stop of playback device.
+            %   Should wait for scheduled sound to complete playback. 
+            PsychPortAudio('Stop', phand, 1); 
             
         case {'byfile'}
         
