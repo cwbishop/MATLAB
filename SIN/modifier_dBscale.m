@@ -44,6 +44,17 @@ function [Y, d]=modifier_dBscale(X, mod_code, varargin)
 %
 %   d:  structure, all kinds of parameters important for the modifier. 
 %
+% Development:
+%
+%   1. Complete additional scoring schemes (word_based, keyword_based). 
+%
+%   2. Test with multiple element dB step. 
+%
+%   3. Need a smarter way to handle whether or not to plot data (xdata,
+%   ydata). These are currently fields in the modcheck field ... might be
+%   worth moving it to the modifier field ... makes more intuitive sense to
+%   have it here. 
+%
 % Christopher W. Bishop
 %   University of Washington
 %   5/14
@@ -105,6 +116,11 @@ Y=X;
 %   Check necessary because if d.modifier is empty, sum(history) returns 0.
 %   Not a big deal here, but better not to open ourselves to (unintended)
 %   stimulus alterations. 
-if ~isempty(d.modifier.history)
+% if ~isempty(d.modifier.history)
     Y(:, channels)=Y(:, channels).*db2amp(sum(d.modifier.history));
-end 
+    
+    %% UPDATE modcheck xdata, ydata
+    %   This is used for plotting purposes in HINT_modcheck_GUI.m 
+    d.modcheck.xdata=1:trial; 
+    d.modcheck.ydata(end+1)=sum(d.modifier.history); 
+% end % ~isempty(d.modifier.history)

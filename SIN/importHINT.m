@@ -28,6 +28,17 @@ function varargout=importHINT(varargin)
 %       'sentence':    
 %       'scoringunits':    number of scorable words
 %
+% Development:
+%
+%   1. This is ungodly slow. Like WOW slow. Even the basic criteria search
+%   takes seconds. Need to speed this up somehow. 
+%
+%   2. Add support for delimited file import (e.g., CSV). This might be the
+%   answer to (1) above as well. Just need to make the initialization way
+%   (way) faster. 
+%
+%   3. This was written in one helluva hurry. Need to vet it. 
+%
 % Christopher W. Bishop
 %   University of Washington 
 %   5/14

@@ -93,16 +93,22 @@ defaults.anl.modcheck.keys=[KbName('up') KbName('down')];
 defaults.anl.modcheck.map=zeros(256,1); defaults.anl.modcheck.map(defaults.anl.modcheck.keys)=1; 
 
 %% HINT DEFAULTS
+%   Default values for the HINT. 
 
-% File containing HINT information by sentence
-defaults.hint=defaults.anl; % pull down ANL defaults to start with
-
+% General %
 % Root directory of HINT stimuli 
 defaults.hint.root='C:\Users\cwbishop\Documents\GitHub\MATLAB\SIN\playback\HINT';
+defaults.hint.playback_channels=[1 2]; % play sound to channels 1 and 2. 
+defaults.hint.fs=defaults.fs; % inherit default sampling rate. 
+defaults.hint.playback=defaults.playback; % grab the default playback device. 
 
+% portaudio_adaptiveplay %
 % Adaptive algorithm 
-%   Just want to gather feedback after each file is presented
+%   Gather feedback after each file is presented
 defaults.hint.adaptive_mode='byfile'; % gather feedback after each sentence. 
+defaults.hint.block_dur=0.08; % 80 ms buffer; only used if 'realtime' playback selected.
+defaults.hint.append_files=false; % keep the files separate
+defaults.hint.stop_if_errors=true; % abort test if errors are encountered.
 
 % HINT List loading paramters
 %   filename:   path to HINT xlsx file containing HINT stimuli information.
@@ -112,13 +118,19 @@ defaults.hint.adaptive_mode='byfile'; % gather feedback after each sentence.
 defaults.hint.list.filename=fullfile(defaults.hint.root, 'HINT.xlsx');
 defaults.hint.list.sheetnum=2;
 
-% HINT modcheck and modifier
+% modcheck configuration
+%   We use a GUI for scoring. For details on additional parameters, see
+%   HINT_modcheck_GUI
 defaults.hint.modcheck.fhandle=@HINT_modcheck_GUI;
 defaults.hint.modcheck.target=0.50; % proportion of correct responses to target
 defaults.hint.modcheck.scoring_method='sentence_based'; 
 defaults.hint.modcheck.scoring_labels={'Correct' 'Incorrect'}; 
 
-% modifier information 
+% modifier_dBscale %
+%   Parameters needed for modifer_dBscale. If a different modifier is used,
+%   replace these fields with whatever the modifier requires (see the
+%   modifier help). 
 defaults.hint.modifier.fhandle=@modifier_dBscale; 
 defaults.hint.modifier.dBstep=2; % 2 dB steps to begin with. This is totally arbitrary
 defaults.hint.modifier.change_step=1; % the trial on which to start applying the dBstep
+defaults.hint.modifier.channels=defaults.hint.playback_channels;

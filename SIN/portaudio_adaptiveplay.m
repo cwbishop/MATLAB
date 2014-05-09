@@ -1,4 +1,4 @@
-function portaudio_adaptiveplay(X, varargin)
+function d=portaudio_adaptiveplay(X, varargin)
 %% DESCRIPTION:
 %
 %   This function is designed to allow (near) real-time modification of
@@ -12,7 +12,7 @@ function portaudio_adaptiveplay(X, varargin)
 %
 % INPUT:
 %
-%   X:  
+%   X:  cell array of file names to wav files. 
 %
 % Parameters:
 %
@@ -59,15 +59,12 @@ function portaudio_adaptiveplay(X, varargin)
 %
 %               modchecks must return the following variables
 %                   
-%                   1. needmod: bool, determines whether or not a
-%                   modification is necessary at all.
-%           
-%                   2. mod_code:    integer (typically) describing the
+%                   1. mod_code:    integer (typically) describing the
 %                                   nature of the required modification.
 %                                   This code is further interpreted by
 %                                   the modifier (below).
 %
-%                   3. c:   a structure containing additional information
+%                   2. c:   a structure containing additional information
 %                           that may be necessary for successive calls to
 %                           'modcheck'.
 %
@@ -97,10 +94,6 @@ function portaudio_adaptiveplay(X, varargin)
 %                           m:  the updated modifier structure. This will
 %                               be provided as an input during all
 %                               subsequent calls to the modifier.
-%
-%                           term:   bool, whether or not to termination the
-%                                   adaptive playback. (true = terminate |
-%                                   false = continue playback)
 %
 %   'adaptive_mode':    string, describing how the modifications should be
 %                       applied to the data stream. This is still under
@@ -173,7 +166,8 @@ function portaudio_adaptiveplay(X, varargin)
 %
 % OUTPUT:
 %
-%   XXX
+%   d:  data structure containing parameters and scored data. Fields depend
+%       on the modifier and modcheck employed. 
 %
 % Development:
 %
@@ -187,9 +181,6 @@ function portaudio_adaptiveplay(X, varargin)
 %
 %   4. Add continuously looped playback (priority 1). 
 %
-%   8. Load defaults in a smarter way. Right now hard-coded to load ANL
-%   parameters, but CWB has plans to use this for HINT and other tests.
-%
 %   10. Add ability to independently control multiple channels (e.g.,
 %   adaptive changes for each channel separately). Or, alternatively, allow
 %   user to select which channels to apply adaptive changes to rather than
@@ -199,32 +190,17 @@ function portaudio_adaptiveplay(X, varargin)
 %       - Or, add an integer channel array specifiying which channels to
 %       apply which modifiers to. This would need to be a cell array. Still
 %       needs more thinking. ...
-%
-%   11. Allow option inputs for c/m (modcheck and modifier data
-%   structures). Might be useful if users need to set initialization
-%   parameters. 
+%       - CWB wrote this, but incorporated this into the modifier instead
+%       of the top level function. This (should) help keep
+%       portaudio_adaptiveplay more generalized. 
 %
 % Christopher W. Bishop
 %   University of Washington
 %   5/14
 
-%% MASSAGE INPUT ARGS
-% Convert inputs to structure
-%   Users may also pass a parameter structure directly, which makes CWB's
-%   life a lot easier. 
-if length(varargin)>1
-    p=struct(varargin{:}); 
-elseif length(varargin)==1
-    p=varargin{1};
-elseif isempty(varargin)
-    p=struct();     
-end %
 
-%% INPUT CHECK AND DEFAULTS
-%   Load defaults from SIN_defaults, then overwrite these by user specific
-%   inputs. 
-defs=SIN_defaults; 
-d=defs.hint;  
+%% GATHER PARAMETERS
+d=varargin2struct(varargin{:}); 
 
 %% FUNCTION SPECIFIC DEFAULTS
 %   - Use a Hanning windowing function by default
@@ -240,28 +216,11 @@ if ~isfield(d, 'stop_if_error') || isempty(d.stop_if_error), d.stop_if_error=tru
 playback_list=X; 
 clear X; 
 
-% OVERWRITE DEFAULTS
-%   Overwrite defaults if user specifies something different.
-flds=fieldnames(p);
-for i=1:length(flds)
-    d.(flds{i})=p.(flds{i}); 
-end % i=1:length(flds)
-
 % Set sampling rate
 FS=d.fs; 
 
-% Clear p
-%   Only want to use d for consistency and to minimize errors. So clear 'p'
-%   to remove temptation.
-clear p; 
-
-%% INTIALIZE MODCHECK AND MODIFIER STRUCTS
-%   Need to provide option settings for user input, so intialization
-%   parameters can be changed if necessary. 
-m=struct(); % modifier struct
-c=struct(); % modcheck struct
-
 %% LOAD DATA
+%
 %   1. Support only wav files. 
 %       - Things break if we accept single/double data series with variable
 %       lengths (can't append data types easily using AA_loaddata). So,
@@ -314,7 +273,7 @@ end % if d.append_files
 InitializePsychSound; 
 
 % Get playback device information 
-[pstruct]=portaudio_GetDevice(defs.playback.device);
+[pstruct]=portaudio_GetDevice(d.playback.device);
 
 % Open the playback device 
 %   Only open audio device if 'realtime' selected. Otherwise, device
@@ -327,19 +286,19 @@ end % if isequal(d.adaptive_mode ...
 %   This information is only used in 'realtime' adaptive playback. Moved
 %   here rather than below to minimize overhead (below this would be called
 %   repeatedly, but these values do not change over stimuli). 
+if isequal(d.adaptive_mode, 'realtime')
+    % Create empty playback buffer
+    buffer_nsamps=round(d.block_dur*FS)*2; % need 2 x the buffer duration
 
-% Create empty playback buffer
-buffer_nsamps=round(d.block_dur*FS)*2; % need 2 x the buffer duration
+    % block_nsamps
+    %   This prooved useful in the indexing below. CWB opted to use a two block
+    %   buffer for playback because it's the easiest to code and work with at
+    %   the moment. 
+    block_nsamps=buffer_nsamps/2; 
 
-% block_nsamps
-%   This prooved useful in the indexing below. CWB opted to use a two block
-%   buffer for playback because it's the easiest to code and work with at
-%   the moment. 
-block_nsamps=buffer_nsamps/2; 
-
-% Find beginning of each "block" within the buffer
-block_start=[1 block_nsamps+1];
-
+    % Find beginning of each "block" within the buffer
+    block_start=[1 block_nsamps+1];
+end % if isequal
 % Creat global trial variable. This information is often needed for
 % modification check and modifier functions. So, just make it available
 % globally and let them tap it if necessary. 
@@ -351,11 +310,11 @@ global trial
 %   device initialized).
 
 % Call modcheck
-[mod_code, c]=d.modcheck.fhandle(d);      
+[mod_code, d]=d.modcheck.fhandle(d);      
 
 % Call modifier
 %   Call with empty data
-[~, m]=d.modifier.fhandle([], mod_code, d); 
+[~, d]=d.modifier.fhandle([], mod_code, d); 
 
 for trial=1:length(stim)
     
@@ -373,24 +332,24 @@ for trial=1:length(stim)
 
     % Clear temporary variable x 
     clear x; 
-
-    %% CREATE WINDOWING FUNCTION (ramp on/off)
-    %   This is used for realtime adaptive mode. The windowing function can
-    %   be provided by the user, but it must be a function handle accepted
-    %   by MATLAB's window function.    
-    win=window(d.window_fhandle, round(d.window_dur*2*FS)); % Create onset/offset ramp
-
-    % Match number of channels
-    win=win*ones(1, size(X,2)); 
-
-    % Create ramp_on (for fading in) and ramp_off (for fading out)
-    ramp_on=win(1:ceil(length(win)/2),:); ramp_on=[ramp_on; ones(block_nsamps - size(ramp_on,1), size(ramp_on,2))];
-    ramp_off=win(ceil(length(win)/2):end,:); ramp_off=[ramp_off; zeros(block_nsamps - size(ramp_off,1), size(ramp_off,2))];    
-
-       
+    
     % Switch to determine mode of adaptive playback. 
     switch lower(d.adaptive_mode)
+        
         case {'realtime'}   
+            
+            %% CREATE WINDOWING FUNCTION (ramp on/off)
+            %   This is used for realtime adaptive mode. The windowing function can
+            %   be provided by the user, but it must be a function handle accepted
+            %   by MATLAB's window function.    
+            win=window(d.window_fhandle, round(d.window_dur*2*FS)); % Create onset/offset ramp
+
+            % Match number of channels
+            win=win*ones(1, size(X,2)); 
+    
+            % Create ramp_on (for fading in) and ramp_off (for fading out)
+            ramp_on=win(1:ceil(length(win)/2),:); ramp_on=[ramp_on; ones(block_nsamps - size(ramp_on,1), size(ramp_on,2))];
+            ramp_off=win(ceil(length(win)/2):end,:); ramp_off=[ramp_off; zeros(block_nsamps - size(ramp_off,1), size(ramp_off,2))];    
             
             % nblocks
             %   Variable only used by 'realtime' plaback
@@ -412,13 +371,13 @@ for trial=1:length(stim)
                 end 
     
                 % Check if modification necessary
-                [mod_code, c]=d.modcheck.fhandle(c); 
+                [mod_code, d]=d.modcheck.fhandle(d); 
         
                 % Save upcoming data
                 x=data.*ramp_off;
         
                 % Modify main data stream
-                [X, m]=d.modifier.fhandle(X, mod_code, m); 
+                [X, d]=d.modifier.fhandle(X, mod_code, d); 
         
                 % Grab data from modified signal
                 if i==nblocks
@@ -513,13 +472,13 @@ for trial=1:length(stim)
             % must be taken care of. 
         
             % Modify all time series        
-            [X, m]=d.modifier.fhandle(X, mod_code, m);
+            [X, d]=d.modifier.fhandle(X, mod_code, d);
             
             % Sound playback
             portaudio_playrec([], pstruct, X, FS, 'fsx', FS);
             
             % Call modcheck        
-            [mod_code, c]=d.modcheck.fhandle(c); 
+            [mod_code, d]=d.modcheck.fhandle(d); 
         
         otherwise
             error(['Unknown adaptive mode (' d.adaptive_mode '). See ''''adaptive_mode''''.']); 
@@ -529,3 +488,6 @@ end % for trial=1:length(X)
 
 % Close all open audio devices
 PsychPortAudio('Close')
+
+% Save data structure and other information
+%   XXX Under development XXX

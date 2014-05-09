@@ -7,14 +7,18 @@ function [mod_code, d]=HINT_modcheck_GUI(varargin)
 %
 % INPUT:
 %
+% Parameters (set by portaudio_adaptiveplay)
 %
 %   'playback_list':    cell array, sentences being presented in
 %                       portaudio_adaptiveplay.m. Sentence order should
 %                       match that in portaudio_adaptiveplay. 
 %
-% Other parameters:
+%                       Note: This field (should) be automatically set by
+%                       portaudio_adaptive play. That is, the user
+%                       typically does not need to specify this. 
 %
-%   These parameters can be set in SIN_defaults.
+%   The following parameters can (and probably should) be set in
+%   SIN_defaults.m 
 %
 %   'scoring_method':   string, type of scoring approach to use. This can
 %                       be expanded easily to incorporate new scoring
@@ -42,8 +46,11 @@ function [mod_code, d]=HINT_modcheck_GUI(varargin)
 %                       -1: make target quieter
 %                       1:  make target louder
 %
+%   d:  updated data structure used by portaudio_adaptiveplay.m
+%
 % Development:
-%   XXX
+%
+%   1. Needs much faster initialization.
 %
 % Christopher W. Bishop
 %   University of Washington
@@ -59,30 +66,8 @@ global trial;
 % initialize mod_code to zero (do nothing) 
 mod_code=0;
 
-%% MASSAGE INPUT ARGS
-% Convert inputs to structure
-%   Users may also pass a parameter structure directly, which makes CWB's
-%   life a lot easier. 
-if length(varargin)>1
-    p=struct(varargin{:}); 
-elseif length(varargin)==1
-    p=varargin{1};
-elseif isempty(varargin)
-    p=struct();     
-end %
-
-%% INPUT CHECK AND DEFAULTS
-defs=SIN_defaults;
-d=defs.hint; 
-
-% OVERWRITE DEFAULTS
-%   Overwrite defaults if user specifies something different.
-flds=fieldnames(p);
-for i=1:length(flds)
-    d.(flds{i})=p.(flds{i}); 
-end % i=1:length(flds)
-
-clear p; % get rid of p so we don't use it. 
+%% INPUT ARGS TO STRUCTURE
+d=varargin2struct(varargin{:}); 
 
 %% IMPORT SENTENCES FROM FILE
 %   This should only be run during initialization. 
@@ -244,8 +229,6 @@ end % switch
 %% DETERMINE IF A MODIFICATION IS NECESSARY
 %   
 % mod_mode=0; % hard coded for now for debugging. 
-
-
 
 %% COPY SCORE INFORMATION OVER TO d STRUCTURE
 
