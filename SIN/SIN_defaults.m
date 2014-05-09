@@ -131,6 +131,6 @@ defaults.hint.modcheck.scoring_labels={'Correct' 'Incorrect'};
 %   replace these fields with whatever the modifier requires (see the
 %   modifier help). 
 defaults.hint.modifier.fhandle=@modifier_dBscale; 
-defaults.hint.modifier.dBstep=2; % 2 dB steps to begin with. This is totally arbitrary
-defaults.hint.modifier.change_step=1; % the trial on which to start applying the dBstep
+defaults.hint.modifier.dBstep=[4 2]; % 2 dB steps to begin with. This is totally arbitrary
+defaults.hint.modifier.change_step=[1 5]; % the trial on which to start applying the dBstep
 defaults.hint.modifier.channels=defaults.hint.playback_channels;

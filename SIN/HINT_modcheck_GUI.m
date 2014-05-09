@@ -110,7 +110,7 @@ if ~isfield(d, 'sentence') || isempty(d.sentence)
     % After we initialize, return control to invoking function
     %   This way we don't bring up the scoring GUI until after the first
     %   sentence is complete. 
-    mod_code=[]; % kick back an empty mod_code since we don't want to track any changes for initialization
+%     mod_code=[]; % kick back an empty mod_code since we don't want to track any changes for initialization
     return; 
     
 end % if ~isfield p ...
@@ -191,7 +191,7 @@ end % switch/otherwise
     'isscored', isscored); 
 
 % Copy figure handle over to d structure.
-d.modcheck.fhand=fhand; 
+d.modcheck.figure=fhand; 
 
 %% DETERMINE SCORE
 %   This will vary depending on the scoring_method parameter
@@ -235,4 +235,9 @@ end % switch
 % Save the raw scores for error checking later
 d.modcheck.score{trial}=score; 
 
+%% CLOSE GUI
+%   Only close it down if we're done. 
+if trial==length(d.playback_list)
+    close(d.modcheck.figure);
+end % 
 

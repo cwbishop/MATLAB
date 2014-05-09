@@ -121,6 +121,6 @@ Y=X;
     
     %% UPDATE modcheck xdata, ydata
     %   This is used for plotting purposes in HINT_modcheck_GUI.m 
-    d.modcheck.xdata=1:trial; 
+    d.modcheck.xdata=1:length(d.modcheck.xdata)+1;
     d.modcheck.ydata(end+1)=sum(d.modifier.history); 
 % end % ~isempty(d.modifier.history)
