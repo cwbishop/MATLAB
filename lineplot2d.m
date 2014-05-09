@@ -148,14 +148,14 @@ end % numel(d.title)==1 ...
 %% MASSAGE LEGEND
 %   Make sure we have legend entries for each data series
 %       Should we allow users to turn the legend off altogether? Probably.
-if isempty(d.legend{1})
-    for t=1:size(Y,3)
-        leg{t}=['Series (' num2str(t) ')'];            
-    end % for t=1:size(Y,3)
-    
-    % Reassign
-    d.legend=leg; 
-end % isempty(d.legend{1}
+% if isempty(d.legend{1})
+%     for t=1:size(Y,3)
+%         leg{t}=['Series (' num2str(t) ')'];            
+%     end % for t=1:size(Y,3)
+%     
+%     % Reassign
+%     d.legend=leg; 
+% end % isempty(d.legend{1}
 
 %% PLOT ROUTINE
 % Loop through each group of data series
@@ -241,11 +241,6 @@ for c=1:size(Y,1)
       
     %% MARKUP FIGURE
     
-    % Turn grid on
-    if strcmpi(d.grid, 'on');
-        grid;
-    end % grid
-    
     % Set axis limits
     txlim=get(gca, 'XLim');
     if ~isempty(d.xlim) && (d.xlim(1) < txlim(1) || d.xlim(2) > txlim(2))
@@ -265,6 +260,18 @@ for c=1:size(Y,1)
     
     % Add legend
     %   Again, only add if it's not empty.
-    if ~isempty(d.legend), legend(d.legend, 'location', d.legend_position); end 
+    %       Kind of a hack here that will throw a shoe if the user wants
+    %       the first entry to be blank, but others to be labeled. A work
+    %       around is the set the first label to ' ' (note the space). This
+    %       will achieve the user's intent. 
+    if ~isempty(d.legend{1}), legend(d.legend, 'location', d.legend_position); end 
+    
+    % Turn grid on
+    %   Have to set parameter fields directly rather than calling "grid".
+    %   Calling grid repeatedly toggles the grid on or off. 
+    if strcmpi(d.grid, 'on');
+        set(gca, 'XGrid', 'on');
+        set(gca, 'YGrid', 'on'); 
+    end % grid    
     
 end % c=1:size(Y,1)
