@@ -224,9 +224,7 @@ end %
 %   Load defaults from SIN_defaults, then overwrite these by user specific
 %   inputs. 
 defs=SIN_defaults; 
-d=defs.hint; 
-FS=d.fs; 
-% FS=22050; 
+d=defs.hint;  
 
 %% FUNCTION SPECIFIC DEFAULTS
 %   - Use a Hanning windowing function by default
@@ -239,7 +237,7 @@ if ~isfield(d, 'append_files') || isempty(d.append_files), d.append_files=false;
 if ~isfield(d, 'stop_if_error') || isempty(d.stop_if_error), d.stop_if_error=true; end 
 
 % Save file names
-file_list=X; 
+playback_list=X; 
 clear X; 
 
 % OVERWRITE DEFAULTS
@@ -248,6 +246,9 @@ flds=fieldnames(p);
 for i=1:length(flds)
     d.(flds{i})=p.(flds{i}); 
 end % i=1:length(flds)
+
+% Set sampling rate
+FS=d.fs; 
 
 % Clear p
 %   Only want to use d for consistency and to minimize errors. So clear 'p'
@@ -274,16 +275,16 @@ c=struct(); % modcheck struct
 t.datatype=2;
 
 % Store time series in cell array (stim)
-stim=cell(length(file_list),1); % preallocate for speed.
-for i=1:length(file_list)
-    [tstim, fsx]=AA_loaddata(file_list{i}, t);
+stim=cell(length(playback_list),1); % preallocate for speed.
+for i=1:length(playback_list)
+    [tstim, fsx]=AA_loaddata(playback_list{i}, t);
     stim{i}=resample(tstim, FS, fsx); 
     
     % Playback channel check
     %   Confirm that the number of playback channels corresponds to the
     %   number of columns in stim{i}
     if numel(d.playback_channels) ~= size(stim{i},2)
-        error(['Incorrect number of playback channels specified for file ' file_list{i}]); 
+        error(['Incorrect number of playback channels specified for file ' playback_list{i}]); 
     end % if numel(p.playback_channels) ...
     
 end % for i=1:length(file_list)
@@ -291,7 +292,7 @@ end % for i=1:length(file_list)
 clear tstim fsx;
 
 % Add file_list to d structure
-d.file_list=file_list; 
+d.playback_list=playback_list;
 
 % Append playback files if flag is set
 if d.append_files
@@ -511,14 +512,14 @@ for trial=1:length(stim)
             % conditions (like scaling sounds relative to one another) that
             % must be taken care of. 
         
+            % Modify all time series        
+            [X, m]=d.modifier.fhandle(X, mod_code, m);
+            
             % Sound playback
             portaudio_playrec([], pstruct, X, FS, 'fsx', FS);
             
             % Call modcheck        
             [mod_code, c]=d.modcheck.fhandle(c); 
-        
-            % Modify all time series        
-            [X, m]=d.modifier.fhandle(X, mod_code, m); 
         
         otherwise
             error(['Unknown adaptive mode (' d.adaptive_mode '). See ''''adaptive_mode''''.']); 

@@ -17,8 +17,35 @@ function varargout = HINT_GUI(varargin)
 %
 %      *See GUI Options on GUIDE's Tools menu.  Choose "GUI allows only one
 %      instance to run (singleton)".
+% 
+% INPUTS:
 %
-% See also: GUIDE, GUIDATA, GUIHANDLES
+%   'xlabel':   string, xlabel for figure. (default='Trial #')
+%
+%   'ylabel':   string, 'ylabel' for figure. (default='SNR (dB)')
+%
+%   'ntrials':  number of trials to play (sets axis information)
+%
+%   'score_labels': cell array, scoring labels used in scoring boxes. These
+%                   default to 'correct' and 'incorrect' 
+%
+%   'words':    cell array, each cell is a string to score (usually a word)
+%
+%   'xdata':    xdata for plotting in inset axes
+%
+%   'ydata':    ydata for plotting in inset axes
+%
+%   'title':    title for figure (upper left). 
+%
+%   'isscored': bool array equal to the number of words in string. Each
+%               element corresponds to the same element of 'words'. A true
+%               value means it will be scored (scoring box visible). A
+%               false value means it will not be scored (scoring box
+%               invisible). (default = false for all elements)
+%
+% Christopher W. Bishop (with help of GUIDE)
+%   University of Washington
+%   5/14
 
 % Edit the above text to modify the response to help HINT_GUI
 
@@ -66,15 +93,8 @@ elseif isempty(varargin)
     p=struct();     
 end % if length ...
 
-%% SET DEFAULTS
-%   'xlabel':   string, xlabel. (default='Trial #')
-%   'ylabel':   string, 'ylabel'. (default='SNR (dB)')
-%   'ntrials': number of trials to play (sets axis information)
-%   'score_labels': cell array, scoring labels used in scoring boxes. These
-%                   default to 'correct' and 'incorrect' 
-%   'string':   string, the text (usually a sentence) to be sored. 
-%   'xdata':    xdata for plotting in inset axes
-%   'ydata':    ydata for plotting in inset axes
+if ~isfield(p, 'words'), p.words=[]; end % no words by default 
+if ~isfield(p, 'isscored'), p.isscored=false(length(p.words),1); end % no scoring by default. 
 if ~isfield(p, 'xlabel'), p.xlabel='Trial #'; end 
 if ~isfield(p, 'ylabel'), p.ylabel='SNR (dB)'; end 
 if ~isfield(p, 'ntrials'), p.ntrials=20; end % set to 20 by default since we'll never have more than 20
@@ -88,6 +108,17 @@ global max_options;  % the maximum number of options for each word.
 max_words=6;
 max_options=2; 
 
+% Error check for p.words. GUI is designed to support 6 words, so throw an
+% error if we have more than that
+if length(p.words) > max_words, error('Too many words'); end
+
+% Error check for p.score_labels. Figure only supports two scoring
+% categories, so throw an error if we have too many
+if length(p.score_labels) > max_options, error('Too many scoring labels'); end 
+
+% Quick check to make sure we have enough scoring information for all words
+if length(p.isscored) ~= length(p.words), error('Scoring vector does not match number of words'); end 
+
 % Create axis labels
 %   Set XLabel, YLabel
 set(get(handles.panel_plot, 'YLabel'), 'String', p.ylabel);
@@ -96,11 +127,9 @@ set(get(handles.panel_plot, 'XLabel'), 'String', p.xlabel);
 % Change figure name (upper left corner)
 set(handles.figure1, 'Name', p.title); 
 
-% Label radio buttons 
-%   Attach labels to radio buttons. Makes the GUI more flexible and useful
-%   for reviewing other types of information related to HINT. 
-
-% Set option labels and reset option values, set words to empty strings
+%% RESET GUI
+%   Reset words and scoring panels to default state (empty strings and
+%   invisible scoring panels). 
 for d=1:max_words
     
     % Reset word values
@@ -120,47 +149,31 @@ end % d=1:max_words
 % Set domain
 xlim([0 p.ntrials]); 
 
-%% RESET GUI
-%   Reset words to empty strings, and make all scoring panels invisible by
-%   default.
-
-% Parse sentence string into words. Create scoring flags.
-%   Not sure the scoring flag is useful yet
-w=strsplit(p.string); 
-% isscored=zeros(length(w),1); % assume nothing is scored by default
-
-%  Second, determine which words will be scored, assign word to text box,
-%  then set visibility of scoring panel.
-for d=1:length(w)
+%% ADD WORDS AND SCORING PANELS
+%   Add words to figure and enable scoring panels
+for n=1:length(p.words)
     
-    % First, remove potential markups, like brackets ([]) and '/'
-    tw=strrep(w{d}, '[', '');
-    tw=strrep(tw, ']', '');
-    tw=strrep(tw, '/', '');    
+    % Add word to GUI
+    set(handles.(['word' num2str(n) '_text']), 'String', p.words{n});
     
-    % Assign word to word textbox
-    set(handles.(['word' num2str(d) '_text']), 'String', w{d});
+    % Add scoring panel
+    %   - Recall that these are invisible by default 
+    if p.isscored(n)
+        set(handles.(['word' num2str(n) '_scoring']), 'Visible', 'on'); 
+    end % if p.isscored(n)
     
-    % If all the letters are uppercase, then assume we'll score this word
-    if isstrprop(tw, 'upper')
-        set(handles.(['word' num2str(d) '_scoring']), 'Visible', 'on');        
-    else
-        set(handles.(['word' num2str(d) '_scoring']), 'Visible', 'off');        
-    end % if isstrprop ...        
-       
-end % for i=1:length(w)
+end % for n=1:length(p.words)       
 
 %% UPDATE PLOT
-%  
-%   User has to provide data
-% drawnow;
-% lineplot2d(p.xdata, p.ydata); 
-
-% UIWAIT makes HINT_GUI wait for user response (see UIRESUME)
-%   Only call plot if there are data to plot. 
+%   When plot data is provided, update the plot. This is useful for
+%   visualization (and debugging). 
 if ~isempty(p.xdata) && ~isempty(p.ydata)
     lineplot2d(p.xdata, p.ydata, 'marker', 'o'); 
 end % if ~
+
+% UIWAIT makes HINT_GUI wait for user response (see UIRESUME)
+%   Waits for user input and response. Part of flow control for this
+%   HINT_modcheck_GUI.m. 
 uiwait(handles.figure1);
 
 % --- Outputs from this function are returned to the command line.

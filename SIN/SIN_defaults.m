@@ -99,6 +99,9 @@ defaults.hint=defaults.anl; % pull down ANL defaults to start with
 
 % Root directory of HINT stimuli 
 defaults.hint.root='C:\Users\cwbishop\Documents\GitHub\MATLAB\SIN\playback\HINT';
+
+% Adaptive algorithm 
+%   Just want to gather feedback after each file is presented
 defaults.hint.adaptive_mode='byfile'; % gather feedback after each sentence. 
 
 % HINT List loading paramters
@@ -111,3 +114,11 @@ defaults.hint.list.sheetnum=2;
 
 % HINT modcheck and modifier
 defaults.hint.modcheck.fhandle=@HINT_modcheck_GUI;
+defaults.hint.modcheck.target=0.50; % proportion of correct responses to target
+defaults.hint.modcheck.scoring_method='sentence_based'; 
+defaults.hint.modcheck.scoring_labels={'Correct' 'Incorrect'}; 
+
+% modifier information 
+defaults.hint.modifier.fhandle=@modifier_dBscale; 
+defaults.hint.modifier.dBstep=2; % 2 dB steps to begin with. This is totally arbitrary
+defaults.hint.modifier.change_step=1; % the trial on which to start applying the dBstep
