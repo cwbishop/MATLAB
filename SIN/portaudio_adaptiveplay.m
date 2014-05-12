@@ -171,40 +171,65 @@ function d=portaudio_adaptiveplay(X, varargin)
 %                       (longer before the change "fades in"). 
 %                       (seconds | default = 0.005 (5 msec))
 %
-% Slave device settings:
+% Unmodulated sound playback settings:
 %
-%   Slave devices can be attached to the "master" soundcard (the soundcard
-%   used to present the data specified by the input variable X). Slave
-%   devices might be useful in certain scenarios. For instance, if the user
-%   wants to present continuous noise in a specific channel, then setting
-%   up a slave device is one way to go (and much simpler than trying to
-%   adapt the buffered playback below). 
+%   CWB originally tried to setup a slave device to manage a second audio
+%   buffer, but after some basic tests, it became clear that the audio
+%   playback quality was just too low. In fact, most attempts, even simply
+%   playing back a sound of interest, crashed MATLAB completely. This
+%   solution was not stable. So, CWB opted to allow users to grab a second
+%   handle (and buffer) to the same physical device. Although this is not
+%   strictly a "slave", it allows the user to present a sound that will not
+%   be subjected to modchecks and modifiers. 
 %
-%       'slave_playback':   A single-element cell containing the filename
+%   This addition was intended to allow the user to present a masker during
+%   sound playback that would *not* be subjected to modchecks and
+%   modifiers. 
+%
+%   At time of writing, only a single file can be presented as an
+%   unmodulated sound. That is, the same sound is presented for each
+%   element of X or, if unmod_playbackmode is set to 'looped', is looped
+%   continuously throughout playback. 
+%
+%       'unmod_playback':   A single-element cell containing the filename
 %                           of the wavfile to be be presented.
 %
-%       'slave_channels':   a channel array similar to the
+%       'unmod_channels':   a channel array similar to the
 %                           'playback_channels' paramter described above,
 %                           but 'slave_channels' only applies to the file
 %                           specified by 'slave_playback'. (defaults to
 %                           playback_channels)
 %       
-%       'slave_playbackmode':   string, the method of slave playback. This
+%       'unmod_playbackmode':   string, the method of unmod playback. This
 %                               is still under development.
 %                               (default='')
-%                                   'looped':   Loop slave playback. This
+%                                   'looped':   Loop unmod playback. This
 %                                               is useful when a masker
 %                                               needs to be presented
 %                                               constantly throughout an
 %                                               otherwise independently
 %                                               controlled target stream
-%                                               (e.g., with HINT). 
+%                                               (e.g., with HINT).
 %
-%       'slave_leadtime':   double, how far in advance the slave device
-%                           should be started relative to the master
-%                           playback. (default=0 seconds). This proved
-%                           useful when administering the HINT. (not
-%                           implemented) 
+%                                   'stopafter':Stop the unmodulated noise
+%                                               after each trial. If this
+%                                               is set, both unmod_leadtime
+%                                               and unmod_lagtime need to
+%                                               be set. 
+%
+%       'unmod_leadtime':   double, how far in advance the slave device
+%                           should be started relative to the modulated
+%                           playback stream. (default=0 seconds). 
+%                           This proved useful when administering the HINT. 
+%                           This is implemented, but terribly crude and
+%                           should not be used for precisely controlled
+%                           relative timing (yet)
+%
+%       'unmod_lagtime':    Double, how long after modulated playback has
+%                           stopped before stopping the unmodulated
+%                           playback (secs) See notes on timing control for
+%                           unmod_leadtime; same deal here - things aren't
+%                           terribly precise yet. 
 %       
 % OUTPUT:
 %
@@ -225,6 +250,9 @@ function d=portaudio_adaptiveplay(X, varargin)
 %   extreme cases, digital quantization error that could lead to bizaree
 %   playback situations.
 %
+%   13. Improve d.unmod_leadtime so the relative start times are reasonably
+%   close. 
+%
 % Christopher W. Bishop
 %   University of Washington
 %   5/14
@@ -242,11 +270,11 @@ if ~isfield(d, 'window_dur') || isempty(d.window_dur), d.window_dur=0.005; end
 if ~isfield(d, 'append_files') || isempty(d.append_files), d.append_files=false; end 
 if ~isfield(d, 'stop_if_error') || isempty(d.stop_if_error), d.stop_if_error=true; end 
 
-% Slave device defaults
-if ~isfield(d, 'slave_leadtime') || isempty(d.slave_leadtime), d.slave_leadtime=0; end 
-if ~isfield(d, 'slave_playback'), d.slave_playback={}; end % no slave playback file by default
-if ~isfield(d, 'slave_playbackmode') || isempty(d.slave_playbackmode), d.slave_playbackmode=''; end 
-if ~isempty(d.slave_playback) && (~isfield(d, 'slave_channels') || isempty(d.slave_channels)), d.slave_channels=d.playback_channels; end     
+% unmod device defaults
+if ~isfield(d, 'unmod_leadtime') || isempty(d.unmod_leadtime), d.unmod_leadtime=0; end 
+if ~isfield(d, 'unmod_playback'), d.unmod_playback={}; end % no unmod playback file by default
+if ~isfield(d, 'unmod_playbackmode') || isempty(d.unmod_playbackmode), d.unmod_playbackmode=''; end 
+if ~isempty(d.unmod_playback) && (~isfield(d, 'unmod_channels') || isempty(d.unmod_channels)), d.unmod_channels=d.playback_channels; end     
 % Save file names
 playback_list=X; 
 clear X; 
@@ -322,18 +350,16 @@ end %
 %   adaptive playback. So, open the handle if either is selected
 if isequal(d.adaptive_mode, 'realtime') || isequal(d.adaptive_mode, 'byfile')
     
-    % Start the master playback device
-    %   Set the soundcard up as a "master" device. 
+    % Open the unmodulated device buffer
     phand = PsychPortAudio('Open', pstruct.DeviceIndex, 1, 0, FS, pstruct.NrOutputChannels);
-    % Attach a playback slave
     
-    % Attach a slave to the playback device if necessary
-    if ~isempty(d.slave_playback)        
+    % Open second handle for unmodulated sound playback
+    if ~isempty(d.unmod_playback)        
         shand = PsychPortAudio('Open', pstruct.DeviceIndex, 1, 0, FS, pstruct.NrOutputChannels);
-    end % if ~isempty(d.slave_...
+        uX = AA_loaddata(d.unmod_playback); 
+    end % if ~isempty(d.unmod_...
     
 end % 
-
 
 %% BUFFER INFORMATION
 %   This information is only used in 'realtime' adaptive playback. Moved
@@ -399,34 +425,48 @@ for trial=1:length(stim)
 
     % Clear temporary variable x 
     clear x; 
-        
-    % Start slave device
-    % SETUP SLAVE DEVICE
-    %   - Fill the buffer
-    %   - Wait for an appropriate lead time (see
-    %   'slave_leadtime'). 
-    if ~isempty(d.slave_playbackmode)
-        switch d.slave_playbackmode
-            case {'looped'}
-            
-                % If this is looped playback, then start the playback of the
-                % masker sound and let it run forever and ever. 
-                if trial == 1
-                    PsychPortAudio('FillBuffer', shand, AA_loaddata(d.slave_playback{1})');                                                     
-                    PsychPortAudio('Start', shand, 0, [], 0);
-                end % if trial == 1
-            
-            otherwise
-                error('Unknown slave_mode'); 
-        end % switch/otherwise 
-        
-    end % if ~isempty(d.slave_playbackmode 
                         
     % Switch to determine mode of adaptive playback. 
     switch lower(d.adaptive_mode)
         
-        case {'realtime', 'byfile'}   
+        case {'realtime', 'byfile'} 
             
+            % SETUP unmod DEVICE
+            %   - Fill the buffer
+            %   - Wait for an appropriate lead time (see
+            %   'unmod_leadtime'). 
+            if ~isempty(d.unmod_playbackmode)
+                switch d.unmod_playbackmode
+                    case {'looped'}
+    
+                        % If this is looped playback, then start the playback of the
+                        % masker sound and let it run forever and ever. 
+                        if trial == 1
+                            PsychPortAudio('FillBuffer', shand, uX');                                                                                 
+                            PsychPortAudio('Start', shand, 0, [], 0);
+                        end % if trial == 1
+                        
+                    case {'stopafter'}
+                        
+                        % Fill the buffer once
+                        if trial ==1
+                            PsychPortAudio('FillBuffer', shand, uX');
+                        end % 
+                        
+                        % Infinite loop plaback
+                        PsychPortAudio('Start', shand, 0, [], 0);
+                        
+                    otherwise
+                        error('Unknown unmod_mode'); 
+                end % switch/otherwise 
+        
+                % Crude wait time.                         
+                WaitSecs(d.unmod_leadtime); 
+                
+                % Now wait 
+                
+            end % if ~isempty(d.unmod_playbackmode 
+    
             %% CREATE WINDOWING FUNCTION (ramp on/off)
             %   This is used for realtime adaptive mode. The windowing function can
             %   be provided by the user, but it must be a function handle accepted
@@ -446,7 +486,7 @@ for trial=1:length(stim)
             
             % Loop through each section of the playback loop. 
             for i=1:nblocks
-                tic
+%                 tic
                 % Which buffer block are we filling?
                 %   Find start and end of the block
                 startofblock=block_start(1+mod(i-1,2));
@@ -521,7 +561,6 @@ for trial=1:length(stim)
                     % better, but CWB isn't sure how to do that (robustly)
                     % at the moment.
                     PsychPortAudio('Start', phand, ceil( (nblocks)/2)+1, [], 0);                    
-%                     PsychPortAudio('Start', phand, 0, [], 0);                    
                     
                     % Wait until we are in the second block of the buffer,
                     % then start rewriting the first. Helps with smooth
@@ -541,7 +580,7 @@ for trial=1:length(stim)
                 %   encountered 0 buffer underrun errors.                 
                 PsychPortAudio('FillBuffer', phand, data', 1, []);  
                                 
-                toc
+%                 toc
 
                 pstatus=PsychPortAudio('GetStatus', phand);
                 
@@ -573,6 +612,12 @@ for trial=1:length(stim)
             % Schedule stop of playback device.
             %   Should wait for scheduled sound to complete playback. 
             PsychPortAudio('Stop', phand, 1); 
+            
+            % Stop unmodulated noise
+            if isequal(d.unmod_playbackmode, 'stopafter')
+                WaitSecs(d.unmod_lagtime);
+                PsychPortAudio('Stop', shand, 0); 
+            end % 
             
             % By file modcheck and data modification. 
             if isequal(d.adaptive_mode, 'byfile')
