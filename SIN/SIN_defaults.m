@@ -42,6 +42,10 @@ defaults.playback.device=portaudio_GetDevice(8);
 % Default recording device
 defaults.record.device=portaudio_GetDevice(6); 
 
+% Default buffer duration (used for 'realtime' adaptive_mode in
+% portaudio_adaptiveplay.m
+defaults.playback.block_dur=0.08; % 80 ms buffer block by default
+
 %% HAGERMAN RECORDING DEFAULTS
 %   Defaults for Hagerman_record (used for standard Hagerman style, phase
 %   inverted recordings). 
@@ -75,7 +79,7 @@ defaults.anl.append_files=true;  % append all the files together.
 
 % Set playback inform
 defaults.anl.playback_channels=[1 2]; % just play sounds from one speaker
-defaults.anl.block_dur=.08; % block duration in sec. 0.08 leads to a buffer of 0.16 s (160 ms). 
+defaults.anl.block_dur=defaults.playback.block_dur; % block duration in sec. 0.08 leads to a buffer of 0.16 s (160 ms). 
                             % Generally, the maxmimum delay of signal
                             % modification (see portaudio_adaptiveplay for
                             % details).       
