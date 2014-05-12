@@ -155,4 +155,9 @@ defaults.hint.modifier{1}.scale_mode='cumulative';
 %   Noise is played from the left channel (channel 1)
 defaults.hint.modifier{2}.fhandle=@modifier_zerochannels; 
 defaults.hint.modifier{2}.channels=1;
-% 
+
+% HINT Noise
+defaults.hint.slave_playback={fullfile(defaults.hint.root, 'HINT-Noise.wav')};
+defaults.hint.slave_playbackmode='looped'; % Loop the noise
+defaults.hint.slave_channels=[1 2]; % two channel file
+defaults.hint.slave_leadtime=1; % 1 second leadtime for noise plyback

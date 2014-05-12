@@ -147,6 +147,13 @@ function d=portaudio_adaptiveplay(X, varargin)
 %                       number of underruns. E-mailed support group on
 %                       5/7/2014. We'll see what they say.
 %
+%   'playback_channels':    integer array. Each element determines which
+%                           channels the corresponding column of the
+%                           playback file (elements of X) will be assigned
+%                           to. 
+%
+%   'looped_playback':  bool, if set then the playback_list (X) is 
+%
 % Windowing options (for 'realtime' playback only):
 %
 %   In 'realtime' mode, data are frequently ramped off or on (that is, fade
@@ -164,6 +171,41 @@ function d=portaudio_adaptiveplay(X, varargin)
 %                       (longer before the change "fades in"). 
 %                       (seconds | default = 0.005 (5 msec))
 %
+% Slave device settings:
+%
+%   Slave devices can be attached to the "master" soundcard (the soundcard
+%   used to present the data specified by the input variable X). Slave
+%   devices might be useful in certain scenarios. For instance, if the user
+%   wants to present continuous noise in a specific channel, then setting
+%   up a slave device is one way to go (and much simpler than trying to
+%   adapt the buffered playback below). 
+%
+%       'slave_playback':   A single-element cell containing the filename
+%                           of the wavfile to be be presented.
+%
+%       'slave_channels':   a channel array similar to the
+%                           'playback_channels' paramter described above,
+%                           but 'slave_channels' only applies to the file
+%                           specified by 'slave_playback'. (defaults to
+%                           playback_channels)
+%       
+%       'slave_playbackmode':   string, the method of slave playback. This
+%                               is still under development.
+%                               (default='')
+%                                   'looped':   Loop slave playback. This
+%                                               is useful when a masker
+%                                               needs to be presented
+%                                               constantly throughout an
+%                                               otherwise independently
+%                                               controlled target stream
+%                                               (e.g., with HINT). 
+%
+%       'slave_leadtime':   double, how far in advance the slave device
+%                           should be started relative to the master
+%                           playback. (default=0 seconds). This proved
+%                           useful when administering the HINT. (not
+%                           implemented) 
+%       
 % OUTPUT:
 %
 %   d:  data structure containing parameters and scored data. Fields depend
@@ -171,36 +213,21 @@ function d=portaudio_adaptiveplay(X, varargin)
 %
 % Development:
 %
-%   - It sounds like sounds in realtime adaptive_mode might be clipped at
-%   the end. Double check indexing for last data block. 
-%
 %   1. Add timing checks to make sure we have enough time to do everything
 %   we need before the buffer runs out
 %
-%   3. Add options for handling buffer underruns. These should generally
-%   throw an irrecoverable error lest our acoustic control deteriorate, but
-%   there may be circumstances in which the user wants to ignore these
-%   warnings and move despite any potential problems. 
-%
 %   4. Add continuously looped playback (priority 1). 
 %
-%   10. Add ability to independently control multiple channels (e.g.,
-%   adaptive changes for each channel separately). Or, alternatively, allow
-%   user to select which channels to apply adaptive changes to rather than
-%   the whole time series and all channels wholesale. Might be worth adding
-%   this to the modifier function ... not sure. Needs more thought. 
-%       - Add flag for independent modification. 
-%       - Or, add an integer channel array specifiying which channels to
-%       apply which modifiers to. This would need to be a cell array. Still
-%       needs more thinking. ...
-%       - CWB wrote this, but incorporated this into the modifier instead
-%       of the top level function. This (should) help keep
-%       portaudio_adaptiveplay more generalized. 
+%   11. Change 'realtime' to 'ongoing'. Although close, 'realtime' is a
+%   misnomer. 
+%
+%   12. Always modify originally provided data. This will prevent, in
+%   extreme cases, digital quantization error that could lead to bizaree
+%   playback situations.
 %
 % Christopher W. Bishop
 %   University of Washington
 %   5/14
-
 
 %% GATHER PARAMETERS
 d=varargin2struct(varargin{:}); 
@@ -215,6 +242,11 @@ if ~isfield(d, 'window_dur') || isempty(d.window_dur), d.window_dur=0.005; end
 if ~isfield(d, 'append_files') || isempty(d.append_files), d.append_files=false; end 
 if ~isfield(d, 'stop_if_error') || isempty(d.stop_if_error), d.stop_if_error=true; end 
 
+% Slave device defaults
+if ~isfield(d, 'slave_leadtime') || isempty(d.slave_leadtime), d.slave_leadtime=0; end 
+if ~isfield(d, 'slave_playback'), d.slave_playback={}; end % no slave playback file by default
+if ~isfield(d, 'slave_playbackmode') || isempty(d.slave_playbackmode), d.slave_playbackmode=''; end 
+if ~isempty(d.slave_playback) && (~isfield(d, 'slave_channels') || isempty(d.slave_channels)), d.slave_channels=d.playback_channels; end     
 % Save file names
 playback_list=X; 
 clear X; 
@@ -285,15 +317,31 @@ end %
 % Open the playback device 
 %   Only open audio device if 'realtime' selected. Otherwise, device
 %   opening/closing is handled through portaudio_playrec.
-if isequal(d.adaptive_mode, 'realtime')
+%
+%   We now use buffered playback for both realtime and byfile
+%   adaptive playback. So, open the handle if either is selected
+if isequal(d.adaptive_mode, 'realtime') || isequal(d.adaptive_mode, 'byfile')
+    
+    % Start the master playback device
+    %   Set the soundcard up as a "master" device. 
     phand = PsychPortAudio('Open', pstruct.DeviceIndex, 1, 0, FS, pstruct.NrOutputChannels);
-end % if isequal(d.adaptive_mode ...
+    % Attach a playback slave
+    
+    % Attach a slave to the playback device if necessary
+    if ~isempty(d.slave_playback)        
+        shand = PsychPortAudio('Open', pstruct.DeviceIndex, 1, 0, FS, pstruct.NrOutputChannels);
+    end % if ~isempty(d.slave_...
+    
+end % 
+
 
 %% BUFFER INFORMATION
 %   This information is only used in 'realtime' adaptive playback. Moved
 %   here rather than below to minimize overhead (below this would be called
 %   repeatedly, but these values do not change over stimuli). 
-if isequal(d.adaptive_mode, 'realtime')
+%
+%   Use buffer information for 'byfile' adaptive mode now as well. 
+if isequal(d.adaptive_mode, 'realtime') || isequal(d.adaptive_mode, 'byfile')
     % Create empty playback buffer
     buffer_nsamps=round(d.block_dur*FS)*2; % need 2 x the buffer duration
 
@@ -351,11 +399,33 @@ for trial=1:length(stim)
 
     % Clear temporary variable x 
     clear x; 
-    
+        
+    % Start slave device
+    % SETUP SLAVE DEVICE
+    %   - Fill the buffer
+    %   - Wait for an appropriate lead time (see
+    %   'slave_leadtime'). 
+    if ~isempty(d.slave_playbackmode)
+        switch d.slave_playbackmode
+            case {'looped'}
+            
+                % If this is looped playback, then start the playback of the
+                % masker sound and let it run forever and ever. 
+                if trial == 1
+                    PsychPortAudio('FillBuffer', shand, AA_loaddata(d.slave_playback{1})');                                                     
+                    PsychPortAudio('Start', shand, 0, [], 0);
+                end % if trial == 1
+            
+            otherwise
+                error('Unknown slave_mode'); 
+        end % switch/otherwise 
+        
+    end % if ~isempty(d.slave_playbackmode 
+                        
     % Switch to determine mode of adaptive playback. 
     switch lower(d.adaptive_mode)
         
-        case {'realtime'}   
+        case {'realtime', 'byfile'}   
             
             %% CREATE WINDOWING FUNCTION (ramp on/off)
             %   This is used for realtime adaptive mode. The windowing function can
@@ -388,18 +458,23 @@ for trial=1:length(stim)
                 else
                     data=X(1+block_nsamps*(i-1):(block_nsamps)*i,:);
                 end 
-    
-                % Check if modification necessary
-                [mod_code, d]=d.modcheck.fhandle(d); 
-        
+                
                 % Save upcoming data
                 x=data.*ramp_off;
-        
-                % Modify main data stream
-                %   Apply all modifiers. 
-                for modifier_num=1:length(d.modifier)
-                    [X, d]=d.modifier{modifier_num}.fhandle(X, mod_code, d); 
-                end % for modifier_num ...
+                
+                % Modcheck and modifier for realtime playback
+                if isequal(d.adaptive_mode, 'realtime')
+                    
+                    % Check if modification necessary
+                    [mod_code, d]=d.modcheck.fhandle(d); 
+                    
+                    % Modify main data stream
+                    %   Apply all modifiers. 
+                    for modifier_num=1:length(d.modifier)
+                        [X, d]=d.modifier{modifier_num}.fhandle(X, mod_code, d); 
+                    end % for modifier_num ...
+                    
+                end % if isequal ...
         
                 % Grab data from modified signal
                 if i==nblocks
@@ -432,6 +507,7 @@ for trial=1:length(stim)
                 %   This has to be done ahead of time since this defines
                 %   the buffer size for the audio device. 
                 if i==1
+                   
                     % Start audio playback, but do not advance until the device has really
                     % started. Should help compensate for intialization time. 
         
@@ -498,26 +574,18 @@ for trial=1:length(stim)
             %   Should wait for scheduled sound to complete playback. 
             PsychPortAudio('Stop', phand, 1); 
             
-        case {'byfile'}
-        
-            % 'byseries' was initially intended to administer the HINT. 
-        
-            % Call modifier information first, in case there are initial
-            % conditions (like scaling sounds relative to one another) that
-            % must be taken care of. 
-        
-            % Modify time series
-            %   Apply all modifiers            
-            for modifier_num=1:length(d.modifier)
-                [X, d]=d.modifier{modifier_num}.fhandle(X, mod_code, d);
-            end % for modifier_num
-            
-            % Sound playback
-            portaudio_playrec([], pstruct, X, FS, 'fsx', FS);
-            
-            % Call modcheck        
-            [mod_code, d]=d.modcheck.fhandle(d); 
-        
+            % By file modcheck and data modification. 
+            if isequal(d.adaptive_mode, 'byfile')
+                
+                for modifier_num=1:length(d.modifier)
+                    [X, d]=d.modifier{modifier_num}.fhandle(X, mod_code, d);
+                end % for modifier_num                
+                
+                % Call modcheck        
+                [mod_code, d]=d.modcheck.fhandle(d); 
+
+            end % isequal(d.adaptive_mode, 'byfile')           
+
         otherwise
             
             error(['Unknown adaptive mode (' d.adaptive_mode '). See ''''adaptive_mode''''.']); 
