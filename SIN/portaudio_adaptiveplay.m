@@ -306,8 +306,8 @@ if isequal(d.adaptive_mode, 'realtime')
     % Find beginning of each "block" within the buffer
     block_start=[1 block_nsamps+1];
     
-    % Refill at at the 1/2 way point through each buffer block. 
-    refillat=buffer_nsamps/4; 
+    % Refill at at the 1/4 of the way through a buffer block
+    refillat=block_nsamps/4; 
     
 end % if isequal
 
@@ -421,7 +421,12 @@ for trial=1:length(stim)
                 end % if i==1
     
                 % Basic clipping check
-                if max(max(abs(data))) > 1, error('Signal clipped!'); end 
+                %   Kill any audio devices when this happens, then throw an
+                %   error. 
+                if max(max(abs(data))) > 1, 
+                    PsychPortAudio('Close'); 
+                    error('Signal clipped!'); 
+                end % if max(max(abs(data))) > 1
                     
                 % First time through, we need to start playback
                 %   This has to be done ahead of time since this defines
@@ -440,6 +445,7 @@ for trial=1:length(stim)
                     % better, but CWB isn't sure how to do that (robustly)
                     % at the moment.
                     PsychPortAudio('Start', phand, ceil( (nblocks)/2)+1, [], 0);                    
+%                     PsychPortAudio('Start', phand, 0, [], 0);                    
                     
                     % Wait until we are in the second block of the buffer,
                     % then start rewriting the first. Helps with smooth
