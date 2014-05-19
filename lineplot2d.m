@@ -44,7 +44,7 @@ function d=lineplot2d(X, Y, varargin)
 %                   the user wants a unique color choice for each line
 %                   plotted. (default=0)
 %       'fignum':   figure number to plot data on. Useful when trying to
-%                   plot data on the same 
+%                   plot data on the same.
 %       'legend_position':  string, legend position (default='best'). See
 %                           doc legend for more details on legend position
 %                           parameters. 
