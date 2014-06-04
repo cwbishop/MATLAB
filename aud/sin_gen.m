@@ -18,4 +18,4 @@ if ~exist('fs') || isempty(fs)
     fs=44100;
 end
 
-wave = sin([1/fs:1/fs:t]*hz*2*pi+ph)';
+wave = sin([0:1/fs:t-1/fs]*hz*2*pi+ph)';
