@@ -16,7 +16,9 @@ if length(args.file) ~= length(EEG)
 end
 
 for s=1:length(EEG)
-    EEG(s).chanlocs = readlocs(args.file{s});
-end
+%     locs = readlocs(args.file{s}); 
+    EEG(s) = pop_chanedit(EEG, 'lookup', args.file{s}); 
+    
+end % s=1:length(EEG)
 
 results = 'done';

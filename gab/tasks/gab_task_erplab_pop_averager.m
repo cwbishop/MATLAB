@@ -29,8 +29,8 @@ function results=gab_task_erplab_pop_averager(args)
 %   University of Washington
 %   11/13
 
-global EEG ERP;
+cmd = ['ERP = pop_averager(EEG' gab_params2str(args.params) ');'];
 
-ERP = pop_averager(EEG, args.params{:});
+evalin('base', cmd); 
 
 results='done';

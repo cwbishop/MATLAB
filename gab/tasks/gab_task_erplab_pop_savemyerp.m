@@ -22,8 +22,10 @@ function results = gab_task_erplab_pop_savemyerp(args)
 %   University of Washington
 %   11/13
 
-global ERP;
+% Generate command 
+cmd = ['pop_savemyerp(ERP' gab_params2str(args.params) ');'];
 
-pop_savemyerp(ERP, args.params{:}); 
+% Evaluate command in base work space. 
+evalin('base', cmd); 
 
 results = 'done';
