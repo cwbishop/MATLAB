@@ -1,4 +1,4 @@
-function [envl]=audSpec_env(filename,Fs_Out,numBnds)
+function [envl, time_stamps, frequencies]=audSpec_env(filename,Fs_Out,numBnds)
 
 % The function produces the auditory spectrogram envelope in dB from a .wav
 % file.
@@ -29,14 +29,27 @@ if nargin<1; error('Not enough arguments.'); end
 
 %% Generate auditory spectrograms
 loadload;
-[stim  Fs_In] = wavread(filename);
+[stim  Fs_In] = audioread(filename);
+
+% CWB removed this resampling line. He *thinks* this is done to set the
+% Nyquist to 4 kHz, but the stimuli we are using have information well
+% above that. 8000 is a classic case of a "magic number". 
+%
+% Actually, the data are resampled so the "-1" parameter in the call to
+% wav2aud below is valid. Seems awfully restrictive. But do this as is
+% until CWB has time to rework these functions to be more flexible. 
 stim=resample(stim,8000,Fs_In);
+
 x1 = stim(:,1); 
 try x2 = stim(:,2);
 catch x2=x1;
 end
-v1=wav2aud(x1,[5 8 -2 -1]);
-v2=wav2aud(x2,[5 8 -2 -1]);
+
+% wav2aud estimates the spectrogram
+[v1, CF] = wav2aud(x1,[5 8 -2 -1]);
+[v2, CF] = wav2aud(x2,[5 8 -2 -1]);
+
+% Convert to decibel scale. 
 v1 = 20*log10(v1+1); v2 = 20*log10(v2+1);
 clear x*
 
@@ -53,5 +66,10 @@ for i = 0:numBnds-1;
         env2=[env2 ; mean(v2(:,1+(i*narBndFact):(i+1)*narBndFact)')];
     end
 end
-envl{1}=resample(env1,Fs_Out,200);
-envl{2}=resample(env2,Fs_Out,200);
+
+% Resample the envelope to Fs_Out
+%   Why is the last input (the current sampling rate) set to 200? The data
+%   ARE resampled to 200 Hz at some point, but CWB can't figure out where.
+%   Must be in wav2aud, but I can't find the line(s) that do (does) it.
+envl{1}=resample(env1,Fs_Out, 200);
+envl{2}=resample(env2,Fs_Out, 200);

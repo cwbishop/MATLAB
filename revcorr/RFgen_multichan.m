@@ -73,14 +73,14 @@ for iChan = 1:No_Chn
             trfweights= stdstim{iRF}/max(stdstim{iRF});
             for iBand=1:No_Bnd;
                 s=sti{iRF}(iBand,:);
-                parfor sn=0:9
+                for sn=0:9
                     [trfcv(sn+1,:,:)]=svdboostV3pred(s,r,zeros(1,RFdur*floor(Fs)),0.005,1e3,sn);
                 end
                 seed(iBand,:)= trfweights(iBand)*(squeeze(mean(trfcv))');
             end
         end
         s=sti{iRF};
-        parfor sn=0:9
+        for sn=0:9
             [hcv(sn+1,:,:),cr(sn+1)]=svdboostV3pred(s,r,seed,0.005,1e3,sn);
         end
         h=stdresp{iRF}*squeeze(mean(hcv));

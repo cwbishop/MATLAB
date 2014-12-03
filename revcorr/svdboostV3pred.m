@@ -6,7 +6,11 @@ function [h,CR_test,Str_testE,CR_train]=svdboostV3pred(x,y,h,DeltaH,MaxIter,segn
 %   Modified by M. Villafañe Delgado [mariselv@umd.edu] and F. Cervantes Constantino 2012 [fcc@umd.edu]
 DeltaH=0.005;
 
-% length of testing signal
+%% LENGTH OF TESTING SIGNAL
+%   The test signal is essentially divided into 10, approximately equal
+%   chunks. This is described in detail in 
+%
+%   Ding, N. and J. Z. Simon (2012). "Neural coding of continuous speech in auditory cortex during monaural and dichotic listening." J Neurophysiol 107(1): 78-89.
 TSlen=size(x,2)/10;
 TSlen=floor(TSlen);
 
