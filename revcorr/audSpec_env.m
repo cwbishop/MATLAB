@@ -46,8 +46,8 @@ catch x2=x1;
 end
 
 % wav2aud estimates the spectrogram
-[v1, CF] = wav2aud(x1,[5 8 -2 -1]);
-[v2, CF] = wav2aud(x2,[5 8 -2 -1]);
+v1 = wav2aud(x1,[5 8 -2 -1]);
+v2 = wav2aud(x2,[5 8 -2 -1]);
 
 % Convert to decibel scale. 
 v1 = 20*log10(v1+1); v2 = 20*log10(v2+1);
