@@ -1,4 +1,4 @@
-function v5 = wav2aud(x, paras, filt, VERB)
+function [v5, CF, FS_SCALE] = wav2aud(x, paras, filt, VERB)
 % WAV2AUD fast auditory spectrogramm (for band 180 - 7246 Hz)
 %	v5 = wav2aud(x, [frmlen, tc, fac, shft], filt, VERB);
 %	x	: the acoustic input.
@@ -81,7 +81,11 @@ L_x = length(x);	% length of input
 % octave shift, nonlinear factor, frame length, leaky integration
 shft	= paras(4);			% octave shift
 fac	= paras(3);			% nonlinear factor
+
+% Frame length is also used below to resample the data. So we'll save this
+% information as a sampling rate scaling factor
 L_frm	= round(paras(1) * 2^(4+shft));	% frame length (points)
+FS_SCALE = 1/L_frm; 
 
 if paras(2),
 	alph	= exp(-1/(paras(2)*2^(4+shft)));	% decaying factor
@@ -98,7 +102,14 @@ N = ceil(L_x / L_frm);		% # of frames
 x(N * L_frm) = 0;		% zero-padding
 x = x(:);
 v5 = zeros(N, M-1);
-%CF = 440 * 2 .^ ((-31:97)/24);
+
+% Calculate the center frequencies
+%   This will lead to a 129-element vector. However, the last frequency
+%   channel is excluded in response estimation below, leading to a 128
+%   element frequency vector. It looks like the highest-frequency band is
+%   used to estimate the "lateral inhibitory network". See below. 
+CF = 440 * 2 .^ ((-31:97)/24) *(2^(shft));
+CF = CF(1:end-1); 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % last channel (highest frequency)

@@ -1,4 +1,4 @@
-function [envl, time_stamps, frequencies]=audSpec_env(filename,Fs_Out,numBnds)
+function [envl, FS, center_frequencies]=audSpec_env(filename,Fs_Out,numBnds)
 
 % The function produces the auditory spectrogram envelope in dB from a .wav
 % file.
@@ -29,7 +29,7 @@ if nargin<1; error('Not enough arguments.'); end
 
 %% Generate auditory spectrograms
 loadload;
-[stim  Fs_In] = audioread(filename);
+[stim,  Fs_In] = audioread(filename);
 
 % CWB removed this resampling line. He *thinks* this is done to set the
 % Nyquist to 4 kHz, but the stimuli we are using have information well
@@ -38,16 +38,22 @@ loadload;
 % Actually, the data are resampled so the "-1" parameter in the call to
 % wav2aud below is valid. Seems awfully restrictive. But do this as is
 % until CWB has time to rework these functions to be more flexible. 
-stim=resample(stim,8000,Fs_In);
+stim = resample(stim,8000,Fs_In);
 
 x1 = stim(:,1); 
 try x2 = stim(:,2);
-catch x2=x1;
+catch x2 = x1;
 end
 
 % wav2aud estimates the spectrogram
-v1 = wav2aud(x1,[5 8 -2 -1]);
+%   Also collect the center frequencies of the estimated bands. This will
+%   be used below to estimate frequency bin centers for the "coarser"
+%   spectral resolution. 
+[v1, CF, FS_SCALE] = wav2aud(x1,[5 8 -2 -1]);
 v2 = wav2aud(x2,[5 8 -2 -1]);
+
+% Compute output FS
+FS = Fs_In .* FS_SCALE; 
 
 % Convert to decibel scale. 
 v1 = 20*log10(v1+1); v2 = 20*log10(v2+1);
@@ -59,13 +65,24 @@ env1=[];env2=[];
 narBndFact = floor((2^7)/numBnds);
 for i = 0:numBnds-1;
     if (numBnds * narBndFact ~= size(v1,2)) && (i == numBnds-1)
-        env1=[env1 ; mean(v1(:,1+(i*narBndFact):end)')];
-        env2=[env2 ; mean(v2(:,1+(i*narBndFact):end)')];
+        mask = 1+(i*narBndFact):size(v1,2);
+%         env1=[env1 ; mean(v1(:,1+(i*narBndFact):end)')];
+%         env2=[env2 ; mean(v2(:,1+(i*narBndFact):end)')];        
     else
-        env1=[env1 ; mean(v1(:,1+(i*narBndFact):(i+1)*narBndFact)')];
-        env2=[env2 ; mean(v2(:,1+(i*narBndFact):(i+1)*narBndFact)')];
+        mask = 1+(i*narBndFact):(i+1)*narBndFact;
+%         env1=[env1 ; mean(v1(:,1+(i*narBndFact):(i+1)*narBndFact)')];
+%         env2=[env2 ; mean(v2(:,1+(i*narBndFact):(i+1)*narBndFact)')];
     end
-end
+    
+    % Average over the specified frequency bands
+    env1 = [env1; mean(v1(:,mask)')];
+    env2 = [env2; mean(v2(:,mask)')]; 
+    
+    % New center frequencies are the average of the frequency bins we
+    % averaged over.
+    center_frequencies(i+1,1) = mean(CF(mask));     
+    
+end % for i=0:...
 
 % Resample the envelope to Fs_Out
 %   Why is the last input (the current sampling rate) set to 200? The data
