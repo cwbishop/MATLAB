@@ -17,8 +17,6 @@ function [rf, pcc, audio_env, erp_data, FS] = erp_revcorr(ERP, audio_track, vara
 %                   must be a single-channel audio track. If it's
 %                   multichannel, the code will only use the first channel.
 %
-%                   Actually, we'll only allow filenames for now. 
-%                   
 % Parameters:
 %
 %   'erp_channels': double array, ERP channels to perform reverse
@@ -39,9 +37,16 @@ function [rf, pcc, audio_env, erp_data, FS] = erp_revcorr(ERP, audio_track, vara
 %                       will effectively be false if n_frequency_bands is
 %                       set to 1. 
 %
+%   'audio_channels':   integer, which audio channel(s) to use in reverse
+%                       correlation estimation. Note: CWB has only tried
+%                       this with a single channel and cannot verify that
+%                       it works with multiple channels (yet). 
+%
+%   'receptive_field_duration': receptive field duration in seconds. 
+%
 % Development:
 %
-%   None (yet)
+%   1. Extend to work with multiple audio channels. 
 %
 % Christopher W. Bishop
 %   University of Washington
@@ -59,10 +64,12 @@ opts = varargin2struct(varargin{:});
 % Time-frequency decomposition and envelope estimation of audio_track
 %   This also resamples the audio data to match the sampling rate of our
 %   ERP data. 
-[audio_env, audio_fs, CF] = audSpec_env(audio_track, erp_fs, opts.seed_boosting);
+[audio_env, CF] = audSpec_env(audio_track, ...
+    'output_fs',erp_fs, ...
+    'n_frequency_bands', opts.n_frequency_bands);
 
 % Only use first channel
-audio_env = audio_env{2}; 
+audio_env = audio_env{opts.audio_channels}; 
 
 % Truncate longer of two data sets to match the shorter of the two sets
 max_length = min([size(audio_env,2) size(erp_data,2)]); 
@@ -74,7 +81,7 @@ audio_env = repmat(audio_env, 1, 1, size(erp_data,3));
 
 
 % Run reverse correlation
-[rf, pcc] = RFgen_multichan(audio_env, erp_data, erp_fs, 1, opts.n_frequency_bands > 1); 
+[rf, pcc] = RFgen_multichan(audio_env, erp_data, erp_fs, opts.receptive_field_duration, opts.seed_boosting); 
 
 % Create some potentially useful plots
 % if opts.pflag

@@ -1,35 +1,48 @@
-function [envl, FS, center_frequencies]=audSpec_env(filename,Fs_Out,numBnds)
+function [envelope, center_frequencies]=audSpec_env(audio_track, varargin)
+%% DESCRIPTION:
+%
+%   This function produces an auditory spectrogram envelope (in dB). 
+%
+% INPUT:
+%
+%   audio_track:    can be any (auditory) data type supported by
+%                   SIN_loaddata. Typically this will be a file name to an
+%                   audio file or the time series itself. 
+%
+% Parameters:
+%
+%   'output_fs':    output sampling rate in Hz. 
+%
+%   'n_frequency_bands':    number of frequency bands to use in envelope
+%                           estimation. Must be in range of [1 2^7]. If not 
+%                           of the form 2^m, then highest bandwidth is 
+%                           residual from all other bandwiths of size 
+%                           2^(7-n) quarter tone. (no default)
+%
+%   'input_fs': input sampling rate in Hz. Required if audio_track is a
+%               time series. 
+%
+% OUTPUT:
+%
+%   envelope:   A C-element cell array, where C is the number of channels
+%               in audio_track. Each element of envelope is an NxT matrix,
+%               where N is the number of frequency bins and T is the number
+%               of time points.
+%
+%   center_frequencies: the center freqencies of the N frequency bands. 
+%
+% Provided by Simon Lab UMD
+%   Revisions and mods by Chris Bishop, UW/UCD 12/2014
 
-% The function produces the auditory spectrogram envelope in dB from a .wav
-% file.
-% The auditory model employed is multiresolution spectro-temporal analysis http://asadl.org/jasa/resource/1/jasman/v118/i2/p887_s1
-% The script is modified from N. Ding 2012 [gahding@umd.edu]
-% by F. Cervantes Constantino 2012,2013 [fcc@umd.edu]
-% and others in the Simon group.
-% http://www.isr.umd.edu/Labs/CSSL/
+%% LOAD PARAMETERS
+opts = varargin2struct(varargin{:});
 
-%filename: A string in 'myDir/mySound.wav' format
+%% SET DEFAULTS
+if ~isfield(opts, 'input_fs'), opts.input_fs = []; end
 
-%Fs_Out: The output sampling frequency. Default is 200 Hz
-
-%numBnds: The desired number of frequency bands in the envelope representation.
-%Integer must be in the range [1,2^7]. If not of the form 2^m, then
-%highest bandwidth is residual from all other bandwiths of size 2^(7-n)
-%quarter tone. Default is 2^5
-
-%envl: A 2 cell array containing each a NxT matrix representing the
-%auditory spectrogram envelope, per stereo channel
-%N=numBnds ; T=number of samples at Fs_Out
-
-%Last revision: 2 August 2013
-
-if nargin<3; numBnds=2^5; end
-if nargin<2; Fs_Out=200; end
-if nargin<1; error('Not enough arguments.'); end
-
-%% Generate auditory spectrograms
+%% GENERATE AUDIO SPECTROGRAM
 loadload;
-[stim,  Fs_In] = audioread(filename);
+[audio_track, input_fs] = SIN_loaddata(audio_track, 'fs', opts.input_fs); 
 
 % CWB removed this resampling line. He *thinks* this is done to set the
 % Nyquist to 4 kHz, but the stimuli we are using have information well
@@ -38,7 +51,7 @@ loadload;
 % Actually, the data are resampled so the "-1" parameter in the call to
 % wav2aud below is valid. Seems awfully restrictive. But do this as is
 % until CWB has time to rework these functions to be more flexible. 
-stim = resample(stim,8000,Fs_In);
+stim = resample(audio_track, 8000, input_fs);
 
 x1 = stim(:,1); 
 try x2 = stim(:,2);
@@ -49,22 +62,22 @@ end
 %   Also collect the center frequencies of the estimated bands. This will
 %   be used below to estimate frequency bin centers for the "coarser"
 %   spectral resolution. 
-[v1, CF, FS_SCALE] = wav2aud(x1,[5 8 -2 -1]);
+[v1, CF, FS_SCALE] = wav2aud(x1, [5 8 -2 -1]);
 v2 = wav2aud(x2,[5 8 -2 -1]);
 
 % Compute output FS
-FS = Fs_In .* FS_SCALE; 
+FS = 8000 .* FS_SCALE;
 
 % Convert to decibel scale. 
 v1 = 20*log10(v1+1); v2 = 20*log10(v2+1);
 clear x*
 
 %% Obtain envelopes at coarser spectral resolution
-envl = cell(1,2);
+envelope = cell(1,2);
 env1=[];env2=[];
-narBndFact = floor((2^7)/numBnds);
-for i = 0:numBnds-1;
-    if (numBnds * narBndFact ~= size(v1,2)) && (i == numBnds-1)
+narBndFact = floor((2^7)/opts.n_frequency_bands);
+for i = 0:opts.n_frequency_bands-1;
+    if (opts.n_frequency_bands * narBndFact ~= size(v1,2)) && (i == opts.n_frequency_bands-1)
         mask = 1+(i*narBndFact):size(v1,2);
 %         env1=[env1 ; mean(v1(:,1+(i*narBndFact):end)')];
 %         env2=[env2 ; mean(v2(:,1+(i*narBndFact):end)')];        
@@ -88,5 +101,5 @@ end % for i=0:...
 %   Why is the last input (the current sampling rate) set to 200? The data
 %   ARE resampled to 200 Hz at some point, but CWB can't figure out where.
 %   Must be in wav2aud, but I can't find the line(s) that do (does) it.
-envl{1}=resample(env1,Fs_Out, 200);
-envl{2}=resample(env2,Fs_Out, 200);
+envelope{1}=resample(env1, opts.output_fs, FS);
+envelope{2}=resample(env2, opts.output_fs, FS);

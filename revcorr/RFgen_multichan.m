@@ -1,4 +1,4 @@
-function [rf,pcc]=RFgen_multichan(stimulus,data,Fs,RFdur,isSeed)
+function [rf,pcc]=RFgen_multichan(stimulus, data, Fs, RFdur, isSeed)
 
 % The function prepares multichannel (e.g. EEG/MEG) epoched data for reverse
 % correlation with auditory stimuli to generate a (spectro-) temporal response function [(S)TRF], per experimental condition, per channel.
