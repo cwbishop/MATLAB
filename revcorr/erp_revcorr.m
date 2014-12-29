@@ -1,4 +1,4 @@
-function [rf, pcc, audio_env, erp_data, FS] = erp_revcorr(ERP, audio_track, varargin)
+function [rf, pcc, audio_env, erp_data, FS] = erp_revcorr(varargin)
 %% DESCRIPTION:
 %
 %   This function performs reverse correlation between an ERP data set and
@@ -10,14 +10,12 @@ function [rf, pcc, audio_env, erp_data, FS] = erp_revcorr(ERP, audio_track, vara
 %
 % INPUT:
 %
-%   ERP:    ERPLab structure. 
-%
-%   audio_track:    can be any data format supported by SIN_loaddata. This
-%                   includes a filename, audio track, etc. However, this
-%                   must be a single-channel audio track. If it's
-%                   multichannel, the code will only use the first channel.
-%
 % Parameters:
+%
+%   'erp':  ERPlab structure or the file path to a file containing the ERP
+%           structure. See SIN_loaddata for more information
+%
+%   'audio_track':  path to file containing audio information. 
 %
 %   'erp_channels': double array, ERP channels to perform reverse
 %                   correlation with. 
@@ -42,7 +40,13 @@ function [rf, pcc, audio_env, erp_data, FS] = erp_revcorr(ERP, audio_track, vara
 %                       this with a single channel and cannot verify that
 %                       it works with multiple channels (yet). 
 %
-%   'receptive_field_duration': receptive field duration in seconds. 
+%   'receptive_field_duration': receptive field duration in seconds.
+%
+%   'remove_mean':  bool, if set, the mean is removed from the selected
+%                   time window of the ERP data. 
+%
+%   'save_to_file': path to mat file with saved variables. (default = '',
+%                   variables are not saved) 
 %
 % Development:
 %
@@ -55,16 +59,38 @@ function [rf, pcc, audio_env, erp_data, FS] = erp_revcorr(ERP, audio_track, vara
 %% LOAD PARAMETERS
 opts = varargin2struct(varargin{:});
 
+% Set defaults
+if ~isfield(opts, 'save_to_file'), opts.save_to_file = ''; end
+
 % Load the ERPLab structure
-[erp_data, erp_fs] = SIN_loaddata(ERP, ...
+[erp_data, erp_fs] = SIN_loaddata(opts.erp, ...
     'chans', opts.erp_channels, ...
     'bins', opts.erp_bins, ...
     'time_window',  opts.time_window .* 1000);  % convert time stamp to millisecond
 
+% Remove mean from ERP data
+%   Remove the mean for each data channel/condition
+if opts.remove_mean
+   
+    for c=1:size(erp_data,1)
+        
+        for b=1:size(erp_data,3)
+            m = []; 
+            % Find the mean
+            m = mean(squeeze(erp_data(c,:,b)));
+            
+            % Subtract mean from these data
+            erp_data(c,:,b) = erp_data(c,:,b) - m; 
+            
+        end % for b=1:
+        
+    end % for c=1:
+end % opts.remove_mean
+
 % Time-frequency decomposition and envelope estimation of audio_track
 %   This also resamples the audio data to match the sampling rate of our
 %   ERP data. 
-[audio_env, CF] = audSpec_env(audio_track, ...
+[audio_env, CF] = audSpec_env(opts.audio_track, ...
     'output_fs',erp_fs, ...
     'n_frequency_bands', opts.n_frequency_bands);
 
@@ -79,9 +105,16 @@ audio_env = audio_env(:,1:max_length);
 % Copy envelope for each condition
 audio_env = repmat(audio_env, 1, 1, size(erp_data,3)); 
 
-
 % Run reverse correlation
 [rf, pcc] = RFgen_multichan(audio_env, erp_data, erp_fs, opts.receptive_field_duration, opts.seed_boosting); 
+
+% Save the variables to a mat file?
+if ~isempty(opts.save_to_file)
+    
+    % Save all variables to file 
+    save(opts.save_to_file)
+    
+end % 
 
 % Create some potentially useful plots
 % if opts.pflag
