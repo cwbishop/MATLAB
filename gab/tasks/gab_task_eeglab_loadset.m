@@ -22,6 +22,18 @@ global EEG;
 if ~isfield(args, 'loadmode'), args.loadmode='all'; end
 if ~isfield(args, 'filepath') || isempty(args.filepath), args.filepath=pwd; end
 
-EEG=pop_loadset('filename', args.filename, 'filepath', args.filepath, 'loadmode', args.loadmode);
+% This now requires the filename and filepath fields to be cell arrays.
+% Force this to be true if a single string is passed in. 
+if ~iscell(args.filepath), args.filepath = cell(args.filepath); end
+if ~iscell(args.filename), args.filename = cell(args.filename); end 
+
+% Support loading multiple files
+for i=1:numel(args.filepath)
+    if i == 1
+        EEG = pop_loadset('filename', args.filename{i}, 'filepath', args.filepath{i}, 'loadmode', args.loadmode);
+    else
+        EEG(i) = pop_loadset('filename', args.filename{i}, 'filepath', args.filepath{i}, 'loadmode', args.loadmode);
+    end % 
+end % for i=1:numel(filepath)
 
 results='done';
