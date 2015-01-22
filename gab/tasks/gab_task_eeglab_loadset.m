@@ -24,8 +24,8 @@ if ~isfield(args, 'filepath') || isempty(args.filepath), args.filepath=pwd; end
 
 % This now requires the filename and filepath fields to be cell arrays.
 % Force this to be true if a single string is passed in. 
-if ~iscell(args.filepath), args.filepath = cell(args.filepath); end
-if ~iscell(args.filename), args.filename = cell(args.filename); end 
+if ~iscell(args.filepath), args.filepath = {args.filepath}; end
+if ~iscell(args.filename), args.filename = {args.filename}; end 
 
 % Support loading multiple files
 for i=1:numel(args.filepath)
